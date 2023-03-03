@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from itertools import product
 from dataclasses import dataclass
 from typing import Optional
@@ -35,7 +36,6 @@ class Board_UI(pg.sprite.Group):
         self.playing = True
         self.active_coords = None
         self.marked = set()
-        self.cleared = [[False] * width for _ in range(height)]
         self.t_board = Board.empty(self.h, self.w)
         self.k_board = Board(self.h, self.w, self.mines_count)
 
@@ -48,9 +48,9 @@ class Board_UI(pg.sprite.Group):
         for x,y in product(range(self.h), range(self.w)):
             if self.t_board[x,y].M == 1:
                 self.cells[x][y].set_content('*')
+                self.mines.add((x,y))
             elif self.t_board[x,y].N > 0:
                 self.cells[x][y].set_content(int(self.t_board[x,y].N))
-        print(self.t_board)
 
     def pos2coord(self, mouse_pos):
         x, y = mouse_pos
@@ -68,15 +68,25 @@ class Board_UI(pg.sprite.Group):
             self.init_mines(cell_coords)
             self.first_move = False
             pg.time.set_timer(pg.USEREVENT, 1000)
-        self.cells[i][j].open()
-        self.cleared[i][j] = True
-        to_clear = self._get_opening(i, j)
+        if self.k_board[i,j].N >= 0:
+            to_clear = set()
+            mines = 0
+            for ni, nj in self.t_board.get_neighbors(i,j):
+                self.cells[ni][nj].unhold()
+                if self.k_board[ni,nj].M == 1: mines += 1
+                else: to_clear = to_clear.union(self.t_board.get_opening(ni, nj))
+            if mines != self.k_board[i,j].N: return
+        else:
+            to_clear = self.t_board.get_opening(i, j)
+        lose = self.t_board[i,j].M == 1
+
         while to_clear:
-            x, y = to_clear.pop(0)
+            x, y = to_clear.pop()
             self.cells[x][y].open()
-            to_clear.extend(self._get_opening(x, y))
-        lose = self.cells[i][j].content == '*'
-        win = not lose and self._check_win()
+            self.k_board.set_clear(x, y, self.t_board[x,y].N)
+        win = torch.all(self.t_board.C == self.k_board.C)
+
+        # handle game over
         if win or lose:
             pg.time.set_timer(pg.USEREVENT, 0)
             to_clear = self.marked if win else self.mines.union(self.marked)
@@ -97,9 +107,15 @@ class Board_UI(pg.sprite.Group):
         if self.active_coords:
             i, j = self.active_coords
             self.cells[i][j].unhold()
+            if self.k_board[i,j].N >= 0:
+                for ni, nj in self.t_board.get_neighbors(i, j):
+                    self.cells[ni][nj].unhold()
         if cell_coords:
             i, j = cell_coords
             self.cells[i][j].hold()
+            if self.k_board[i,j].N >= 0:
+                for ni, nj in self.t_board.get_neighbors(i, j):
+                    self.cells[ni][nj].hold()
         self.active_coords = cell_coords
 
     def mouse_down(self, mouse_event):
@@ -114,6 +130,9 @@ class Board_UI(pg.sprite.Group):
                 self.indicator.change_state(GameStates.MOVE)
                 self.active_coords = cell_coords
                 self.cells[i][j].hold()
+                if self.k_board[i,j].N >= 0:
+                    for ni, nj in self.t_board.get_neighbors(i, j):
+                        self.cells[ni][nj].hold()
             case 3:
                 deltas = {'F': 1, 'Q': 0, None: -1}
                 self.mine_counter.change_value(deltas[self.cells[i][j].mark])
@@ -124,24 +143,6 @@ class Board_UI(pg.sprite.Group):
                 elif self.cells[i][j].mark is None and (i, j) in self.marked:
                     self.marked.remove((i, j))
                     self.k_board.set_mine(i, j, 0)
-                print(self.k_board)
-
-    def _get_opening(self, x, y):
-        to_clear = []
-        if self.t_board[x,y].N == 0:
-            for nx, ny in self._get_neighbors(x, y):
-                if not self.cleared[nx][ny]:
-                    to_clear.append((nx, ny))
-                    self.cleared[nx][ny] = True
-        return to_clear
-
-    def _get_neighbors(self, x, y):
-        deltas = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)]
-        return [(x+dx, y+dy) for dx,dy in deltas if 0 <= x+dx < self.h and 0 <= y+dy < self.w]
-
-    def _check_win(self):
-        return all(cell.is_cleared or cell.content == '*'
-                   for row in self.cells for cell in row)
 
 
 @dataclass

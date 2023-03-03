@@ -50,8 +50,8 @@ class Board:
         # Override = so B_1 = B_2 means the unknown squares have the same probabilities
         
         # Find areas where one board has mines and the other doesn't
-        mine_diff_1 = torch.max(self.M - other.M, 0)
-        mine_diff_2 = torch.max(other.M - self.M, 0)
+        mine_diff_1 = torch.max(self.M - other.M, 0).values
+        mine_diff_2 = torch.max(other.M - self.M, 0).values
 
         # Erase those mines and update knowlege sets
         reduced_M_1 = self.M - mine_diff_1
@@ -100,8 +100,26 @@ class Board:
             self.n += 1
             
     def set_mine(self, x, y, v=1):
+        if self.C[...,x,y] == 1: return
         self.M[...,x,y] = v
 
     def set_clear(self, x, y, N):
+        if self.M[...,x,y] == 1: return
         self.C[...,x,y] = 1
         self.N[...,x,y] = N
+
+    def get_neighbors(self, x, y):
+        deltas = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)]
+        return [(x+dx, y+dy) for dx,dy in deltas if 0 <= x+dx < self.rows and 0 <= y+dy < self.cols]
+    
+    def get_opening(self, x, y):
+        stack = [(x,y)]
+        opening = set()
+        while stack:
+            i, j = stack.pop()
+            opening.add((i,j))
+            if self.N[...,i,j] != 0: continue
+            for ni, nj in self.get_neighbors(i, j):
+                if (ni, nj) in opening: continue
+                stack.append((ni, nj))
+        return opening
