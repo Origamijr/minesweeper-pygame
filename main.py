@@ -1,7 +1,7 @@
 #!/bin/python3
 import pygame as pg
 
-from game import Game, Board_UI
+from core.game import Game, Board_UI
 from misc.input_validators import IntValidator
 from misc.util import terminate, get_presets
 from misc.constants import UPDATEBOUNDSEVENT

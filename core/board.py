@@ -1,6 +1,9 @@
 import torch
-from misc.constants import NEIGHBOR_KERNEL
 import torch.nn.functional as F
+
+NEIGHBOR_KERNEL = torch.tensor([[[[1.,1.,1.],
+                                  [1.,0.,1.],
+                                  [1.,1.,1.]]]])
 
 class Board:
     def __init__(self, rows, cols, n, M=None, C=None, N=None):
