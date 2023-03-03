@@ -1,4 +1,4 @@
-from random import choice
+import numpy as np
 from itertools import product
 from dataclasses import dataclass
 from typing import Optional
@@ -12,8 +12,10 @@ from misc.constants import TOGGLECURSOREVENT, MAIN_GRAY
 from misc.util import draw_cell, handle_change, get_preset_name
 from misc.input_validators import IntValidator
 
+from core.board import Board
 
-class Field(pg.sprite.Group):
+
+class Board_UI(pg.sprite.Group):
     def __init__(self, width: int, height: int, left_indent: int, top_indent: int,
                  cell_size: int, state_indicator: Indicator, counter: Counter, mines_count: int,
                  *sprites):
@@ -26,29 +28,31 @@ class Field(pg.sprite.Group):
         self.left = left_indent
         self.top = top_indent
         self.cell_size = cell_size
-        self.field = [[Cell(x, y, cell_size, left_indent, top_indent, self)
+        self.cells = [[Cell(x, y, cell_size, left_indent, top_indent, self)
                        for y in range(width)] for x in range(height)]
         self.first_move = True
         self.mines = set()
         self.playing = True
         self.last_coords = None
         self.marked = set()
-        self.opened = [[False] * width for _ in range(height)]
+        self.cleared = [[False] * width for _ in range(height)]
+        self.t_board = Board.empty(self.h, self.w)
+        self.k_board = Board(self.h, self.w, self.mines_count)
 
     def init_mines(self, exclude_coords):
         coords = set(product(range(self.h), range(self.w)))
         coords.remove(exclude_coords)
-        for _ in range(self.mines_count):
-            c = choice(list(coords))
-            self.mines.add(c)
-            self.field[c[0]][c[1]].set_content('*')
-            for row in self.field[max(0, c[0] - 1):min(self.h, c[0] + 2)]:
-                for cell in filter(lambda x: x.content != '*',
-                                   row[max(0, c[1] - 1):min(self.w, c[1] + 2)]):
-                    cell.set_content(cell.content + 1)
-            coords.remove(c)
+        ind = list(np.random.choice(np.arange(len(coords)),self.mines_count,replace=False))
+        for x,y in np.array(list(coords))[ind]:
+            self.t_board.add_mine(x, y)
+        for x,y in product(range(self.h), range(self.w)):
+            if self.t_board[x,y].M == 1:
+                self.cells[x][y].set_content('*')
+            elif self.t_board[x,y].N > 0:
+                self.cells[x][y].set_content(int(self.t_board[x,y].N))
+        print(self.t_board)
 
-    def get_cell(self, mouse_pos):
+    def pos2coord(self, mouse_pos):
         x, y = mouse_pos
         i = (y - self.top) // self.cell_size
         j = (x - self.left) // self.cell_size
@@ -58,67 +62,67 @@ class Field(pg.sprite.Group):
         if self.playing and self.last_coords:
             cell_coords = self.last_coords
             i, j = cell_coords
-            if self.field[i][j].mark is None:
+            if self.cells[i][j].mark is None:
                 if self.first_move:
                     self.init_mines(cell_coords)
                     self.first_move = False
                     pg.time.set_timer(pg.USEREVENT, 1000)
-                self.field[i][j].open()
-                self.opened[i][j] = True
-                queue = self._get_queue(i, j)
-                while queue:
-                    x, y = queue.pop(0)
-                    self.field[x][y].open()
-                    queue.extend(self._get_queue(x, y))
-                lose = self.field[i][j].content == '*'
+                self.cells[i][j].open()
+                self.cleared[i][j] = True
+                to_clear = self._get_opening(i, j)
+                while to_clear:
+                    x, y = to_clear.pop(0)
+                    self.cells[x][y].open()
+                    to_clear.extend(self._get_opening(x, y))
+                lose = self.cells[i][j].content == '*'
                 win = not lose and self._check_win()
                 if win or lose:
                     pg.time.set_timer(pg.USEREVENT, 0)
-                    queue = self.marked if win else self.mines.union(self.marked)
-                    for i, j in queue:
+                    to_clear = self.marked if win else self.mines.union(self.marked)
+                    for i, j in to_clear:
                         if (i, j) != cell_coords:
-                            self.field[i][j].open(False)
+                            self.cells[i][j].open(False)
                     if win:
                         for i, j in self.mines:
-                            self.field[i][j].mark = None
-                            self.field[i][j].set_mark()
+                            self.cells[i][j].mark = None
+                            self.cells[i][j].set_flag()
                     self.playing = False
                     self.indicator.change_state(GameStates.WIN if win else GameStates.LOSE)
             self.last_coords = None
 
     def hold(self, mouse_pos):
         if self.playing:
-            cell_coords = self.get_cell(mouse_pos)
+            cell_coords = self.pos2coord(mouse_pos)
             if cell_coords:
                 i, j = cell_coords
                 pressed = pg.mouse.get_pressed(3)
-                if pressed[0] and self.field[i][j].mark is None:
+                if pressed[0] and self.cells[i][j].mark is None:
                     self.indicator.change_state(GameStates.MOVE)
                     self.last_coords = cell_coords
-                    self.field[i][j].hold()
+                    self.cells[i][j].hold()
                 elif pressed[2] and (
-                        self.mine_counter.get_value() > 0 or self.field[i][j].mark is not None):
+                        self.mine_counter.get_value() > 0 or self.cells[i][j].mark is not None):
                     deltas = {'F': -1, 'Q': 1, None: 0}
-                    self.field[i][j].set_mark()
-                    self.mine_counter.change_value(deltas[self.field[i][j].mark])
-                    if self.field[i][j].mark == 'F':
+                    self.cells[i][j].set_flag()
+                    self.mine_counter.change_value(deltas[self.cells[i][j].mark])
+                    if self.cells[i][j].mark == 'F':
                         self.marked.add((i, j))
-                    elif self.field[i][j].mark is None and (i, j) in self.marked:
+                    elif self.cells[i][j].mark is None and (i, j) in self.marked:
                         self.marked.remove((i, j))
 
-    def _get_queue(self, x, y):
-        q = []
-        if self.field[x][y].content == 0:
+    def _get_opening(self, x, y):
+        to_clear = []
+        if self.t_board[x,y].N == 0:
             for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)]:
                 nx, ny = max(min(x + dx, self.h - 1), 0), max(min(y + dy, self.w - 1), 0)
-                if not self.opened[nx][ny]:
-                    q.append((nx, ny))
-                    self.opened[nx][ny] = True
-        return q
+                if not self.cleared[nx][ny]:
+                    to_clear.append((nx, ny))
+                    self.cleared[nx][ny] = True
+        return to_clear
 
     def _check_win(self):
-        return all(cell.is_opened or cell.content == '*'
-                   for row in self.field for cell in row)
+        return all(cell.is_cleared or cell.content == '*'
+                   for row in self.cells for cell in row)
 
 
 @dataclass
@@ -132,7 +136,7 @@ class Game:
     panel: Optional[pg.sprite.Group] = None
     menu_bar: Optional[pg.sprite.Group] = None
     screen: Optional[pg.Surface] = None
-    field: Optional[Field] = None
+    field: Optional[Board_UI] = None
     screens: Optional[dict[Screens, pg.Surface]] = None
     timer: Optional[Counter] = None
     height_input: Optional[TextInput] = None
@@ -173,7 +177,7 @@ class Game:
             panel_y, self.layout.counter_width, self.layout.indicator_size)
 
         self.panel = pg.sprite.Group(indicator, mine_counter, self.timer)
-        self.field = Field(field_w, field_h, self.layout.left_indent,
+        self.field = Board_UI(field_w, field_h, self.layout.left_indent,
                            self.layout.top_indent + self.layout.menubar_height,
                            self.layout.cell_size, indicator, mine_counter,
                            self.game_preset.mines_count)

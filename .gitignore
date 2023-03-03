@@ -1,0 +1,3 @@
+venv_ms/
+*.ipynb
+__pycache__/

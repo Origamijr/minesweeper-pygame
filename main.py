@@ -1,7 +1,7 @@
 #!/bin/python3
 import pygame as pg
 
-from game import Game, Field
+from game import Game, Board_UI
 from misc.input_validators import IntValidator
 from misc.util import terminate, get_presets
 from misc.constants import UPDATEBOUNDSEVENT
@@ -32,7 +32,7 @@ if __name__ == '__main__':
                         game.timer.set_value(0)
                         pg.time.set_timer(pg.USEREVENT, 0)
                         game.field.mine_counter.set_value(game.field.mines_count)
-                        game.field = Field(game.field.w, game.field.h, game.field.left,
+                        game.field = Board_UI(game.field.w, game.field.h, game.field.left,
                                            game.field.top,
                                            game.field.cell_size, game.field.indicator,
                                            game.field.mine_counter,

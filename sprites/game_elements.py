@@ -15,7 +15,7 @@ class Cell(pg.sprite.Sprite):
         self.content_image = None
         self.rect = pg.rect.Rect(x, y, cell_size, cell_size)
         self.image = draw_cell(cell_size, cell_size)
-        self.is_opened = False
+        self.is_cleared = False
         self.mark = None
 
     def set_content(self, content):
@@ -30,8 +30,8 @@ class Cell(pg.sprite.Sprite):
                 'content must be "mine" or int (count of neighbor mines in range [1, 8])')
         self.content = content
 
-    def set_mark(self):
-        if not self.is_opened:
+    def set_flag(self):
+        if not self.is_cleared:
             if self.mark is None:
                 self.mark = 'F'
             elif self.mark == 'F':
@@ -43,14 +43,14 @@ class Cell(pg.sprite.Sprite):
                 self.image.blit(load_image(f'{self.mark}.png'), (0, 0))
 
     def hold(self):
-        if not self.is_opened:
+        if not self.is_cleared:
             self.image.fill(DARK_GRAY)
             pg.draw.rect(self.image, MAIN_GRAY, (1, 1, self.rect.w - 2, self.rect.h - 2), 0)
 
     def open(self, user=True):
         """:param user: is cell opening by user or by program (on game ending)"""
         not_mine_cond = not user and self.content != '*'
-        if not self.is_opened and (self.mark is None or not_mine_cond):
+        if not self.is_cleared and (self.mark is None or not_mine_cond):
             self.image.fill(DARK_GRAY)
             pg.draw.rect(self.image, pg.Color('red') if user and self.content == '*' else MAIN_GRAY,
                          (1, 1, self.rect.w - 2, self.rect.h - 2), 0)
@@ -58,7 +58,7 @@ class Cell(pg.sprite.Sprite):
                 self.image.blit(load_image('not-mine.png'), (0, 0))
             elif self.content_image:
                 self.image.blit(self.content_image, (0, 0))
-            self.is_opened = True
+            self.is_cleared = True
 
     def __repr__(self):
         """For debugging"""
