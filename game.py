@@ -33,7 +33,7 @@ class Board_UI(pg.sprite.Group):
         self.first_move = True
         self.mines = set()
         self.playing = True
-        self.last_coords = None
+        self.active_coords = None
         self.marked = set()
         self.cleared = [[False] * width for _ in range(height)]
         self.t_board = Board.empty(self.h, self.w)
@@ -58,67 +58,86 @@ class Board_UI(pg.sprite.Group):
         j = (x - self.left) // self.cell_size
         return (i, j) if 0 <= i < self.h and 0 <= j < self.w else None
 
-    def get_click(self):
-        if self.playing and self.last_coords:
-            cell_coords = self.last_coords
-            i, j = cell_coords
-            if self.cells[i][j].mark is None:
-                if self.first_move:
-                    self.init_mines(cell_coords)
-                    self.first_move = False
-                    pg.time.set_timer(pg.USEREVENT, 1000)
-                self.cells[i][j].open()
-                self.cleared[i][j] = True
-                to_clear = self._get_opening(i, j)
-                while to_clear:
-                    x, y = to_clear.pop(0)
-                    self.cells[x][y].open()
-                    to_clear.extend(self._get_opening(x, y))
-                lose = self.cells[i][j].content == '*'
-                win = not lose and self._check_win()
-                if win or lose:
-                    pg.time.set_timer(pg.USEREVENT, 0)
-                    to_clear = self.marked if win else self.mines.union(self.marked)
-                    for i, j in to_clear:
-                        if (i, j) != cell_coords:
-                            self.cells[i][j].open(False)
-                    if win:
-                        for i, j in self.mines:
-                            self.cells[i][j].mark = None
-                            self.cells[i][j].set_flag()
-                    self.playing = False
-                    self.indicator.change_state(GameStates.WIN if win else GameStates.LOSE)
-            self.last_coords = None
+    def mouse_up(self, mouse_event):
+        if not self.playing or not self.active_coords: return
+        cell_coords = self.active_coords
+        i, j = cell_coords
+        self.active_coords = None
+        if self.cells[i][j].mark is not None: return
+        if self.first_move:
+            self.init_mines(cell_coords)
+            self.first_move = False
+            pg.time.set_timer(pg.USEREVENT, 1000)
+        self.cells[i][j].open()
+        self.cleared[i][j] = True
+        to_clear = self._get_opening(i, j)
+        while to_clear:
+            x, y = to_clear.pop(0)
+            self.cells[x][y].open()
+            to_clear.extend(self._get_opening(x, y))
+        lose = self.cells[i][j].content == '*'
+        win = not lose and self._check_win()
+        if win or lose:
+            pg.time.set_timer(pg.USEREVENT, 0)
+            to_clear = self.marked if win else self.mines.union(self.marked)
+            for i, j in to_clear:
+                if (i, j) != cell_coords:
+                    self.cells[i][j].open(False)
+            if win:
+                for i, j in self.mines:
+                    self.cells[i][j].mark = None
+                    self.cells[i][j].set_mark()
+            self.playing = False
+            self.indicator.change_state(GameStates.WIN if win else GameStates.LOSE)
 
-    def hold(self, mouse_pos):
-        if self.playing:
-            cell_coords = self.pos2coord(mouse_pos)
-            if cell_coords:
-                i, j = cell_coords
-                pressed = pg.mouse.get_pressed(3)
-                if pressed[0] and self.cells[i][j].mark is None:
-                    self.indicator.change_state(GameStates.MOVE)
-                    self.last_coords = cell_coords
-                    self.cells[i][j].hold()
-                elif pressed[2] and (
-                        self.mine_counter.get_value() > 0 or self.cells[i][j].mark is not None):
-                    deltas = {'F': -1, 'Q': 1, None: 0}
-                    self.cells[i][j].set_flag()
-                    self.mine_counter.change_value(deltas[self.cells[i][j].mark])
-                    if self.cells[i][j].mark == 'F':
-                        self.marked.add((i, j))
-                    elif self.cells[i][j].mark is None and (i, j) in self.marked:
-                        self.marked.remove((i, j))
+    def mouse_drag(self, mouse_event):
+        if not self.playing or not (mouse_event.buttons[0] or mouse_event.buttons[1]): return
+        cell_coords = self.pos2coord(mouse_event.pos)
+        if cell_coords == self.active_coords: return
+        if self.active_coords:
+            i, j = self.active_coords
+            self.cells[i][j].unhold()
+        if cell_coords:
+            i, j = cell_coords
+            self.cells[i][j].hold()
+        self.active_coords = cell_coords
+
+    def mouse_down(self, mouse_event):
+        if not self.playing: return
+        cell_coords = self.pos2coord(mouse_event.pos)
+        if cell_coords is None: return
+        i, j = cell_coords
+        pressed = pg.mouse.get_pressed(5)
+        match mouse_event.button:
+            case 1 | 2:
+                if self.cells[i][j].mark is not None: return
+                self.indicator.change_state(GameStates.MOVE)
+                self.active_coords = cell_coords
+                self.cells[i][j].hold()
+            case 3:
+                deltas = {'F': 1, 'Q': 0, None: -1}
+                self.mine_counter.change_value(deltas[self.cells[i][j].mark])
+                self.cells[i][j].set_mark()
+                if self.cells[i][j].mark == 'F':
+                    self.marked.add((i, j))
+                    self.k_board.set_mine(i, j)
+                elif self.cells[i][j].mark is None and (i, j) in self.marked:
+                    self.marked.remove((i, j))
+                    self.k_board.set_mine(i, j, 0)
+                print(self.k_board)
 
     def _get_opening(self, x, y):
         to_clear = []
         if self.t_board[x,y].N == 0:
-            for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)]:
-                nx, ny = max(min(x + dx, self.h - 1), 0), max(min(y + dy, self.w - 1), 0)
+            for nx, ny in self._get_neighbors(x, y):
                 if not self.cleared[nx][ny]:
                     to_clear.append((nx, ny))
                     self.cleared[nx][ny] = True
         return to_clear
+
+    def _get_neighbors(self, x, y):
+        deltas = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)]
+        return [(x+dx, y+dy) for dx,dy in deltas if 0 <= x+dx < self.h and 0 <= y+dy < self.w]
 
     def _check_win(self):
         return all(cell.is_cleared or cell.content == '*'

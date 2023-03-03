@@ -23,11 +23,15 @@ if __name__ == '__main__':
 
             if game.current_screen == Screens.MAIN:
                 if event.type == pg.MOUSEBUTTONDOWN:
-                    game.field.hold(event.pos)
+                    game.field.mouse_down(event)
                     game.field.indicator.click(event.pos)
 
+                if event.type == pg.MOUSEMOTION:
+                    game.field.mouse_drag(event)
+                    pass
+
                 if event.type == pg.MOUSEBUTTONUP:
-                    game.field.get_click()
+                    game.field.mouse_up(event)
                     if game.field.indicator.release():
                         game.timer.set_value(0)
                         pg.time.set_timer(pg.USEREVENT, 0)

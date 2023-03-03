@@ -99,8 +99,8 @@ class Board:
             self.N += N_inc * mask_N
             self.n += 1
             
-    def set_mine(self, x, y):
-        self.M[...,x,y] = 1
+    def set_mine(self, x, y, v=1):
+        self.M[...,x,y] = v
 
     def set_clear(self, x, y, N):
         self.C[...,x,y] = 1

@@ -30,11 +30,11 @@ class Cell(pg.sprite.Sprite):
                 'content must be "mine" or int (count of neighbor mines in range [1, 8])')
         self.content = content
 
-    def set_flag(self):
+    def set_mark(self, use_Q=False):
         if not self.is_cleared:
             if self.mark is None:
                 self.mark = 'F'
-            elif self.mark == 'F':
+            elif self.mark == 'F' and use_Q:
                 self.mark = 'Q'
             else:
                 self.mark = None
@@ -43,9 +43,13 @@ class Cell(pg.sprite.Sprite):
                 self.image.blit(load_image(f'{self.mark}.png'), (0, 0))
 
     def hold(self):
-        if not self.is_cleared:
-            self.image.fill(DARK_GRAY)
-            pg.draw.rect(self.image, MAIN_GRAY, (1, 1, self.rect.w - 2, self.rect.h - 2), 0)
+        if self.is_cleared or self.mark is not None: return
+        self.image.fill(DARK_GRAY)
+        pg.draw.rect(self.image, MAIN_GRAY, (1, 1, self.rect.w - 2, self.rect.h - 2), 0)
+
+    def unhold(self):
+        if self.is_cleared or self.mark is not None: return
+        self.image = draw_cell(self.size, self.size)
 
     def open(self, user=True):
         """:param user: is cell opening by user or by program (on game ending)"""
@@ -114,22 +118,24 @@ class Counter(pg.sprite.Sprite):
         self.changed = True
         self.image = draw_cell(width, height, 2, False)
         self.rect = pg.Rect(x, y, width, height)
-        self.numbers = {str(num): load_image(f'seven segment/{num}.png') for num in range(10)}
+        self.numbers = {str(num): load_image(f'seven_segment/{num}.png') for num in range(10)}
+        self.numbers['-'] = load_image('seven_segment/neg.png')
         super().__init__(*groups)
 
     def change_value(self, d):
-        self.__value = min(self.__value + d, 999)  # Prevent overflow
+        self.__value = self.__value + d  # Prevent overflow
         self.changed = True
 
     def set_value(self, value):
-        self.__value = min(value, 999)  # Prevent overflow
+        self.__value = value  # Prevent overflow
         self.changed = True
 
     def get_value(self):
         return self.__value
 
     def update(self, *args):
+        clamped = max(-99, min(self.__value, 999))
         if self.changed:
-            for i, n in enumerate(str(self.__value)[-3:].rjust(3, '0')):
+            for i, n in enumerate(str(clamped)[-3:].rjust(3, '0')):
                 self.image.blit(self.numbers[n], (2 + i * 26, 2))
             self.changed = False
