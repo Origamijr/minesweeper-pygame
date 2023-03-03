@@ -1,24 +1,14 @@
 # minesweeper-pygame
-A PyGame project for Yandex Lyceum. 
-I tried to make something that will look as similar as possible to game from Windows XP.
-# Features
-- Scaled up 2 times. Default cell size is 30px, it may be changed in future releases or may be made editable for a user.
-- Original functions from Windows XP game.
-- Editable game presets (field size & mines count).
-# Install from source
+A PyGame implementation of minesweeper. Forked from [eivankin's repository](https://github.com/eivankin/minesweeper-pygame) to borrow their Windows XP-like GUI. The underlying code has been modified to decouple game state from the game engine itself to enable seperate analysis, as well as making game feel more similar to what you'd find at [minesweeper.online](https://minesweeper.online/).
 ## Requirements
-Python >=3.9 is required to run this application from source.
+Python >=3.10 is required to run this application from source.
 ## Installation
-If there are no binaries for your platform in releases, or you want to use the latest (dev) version, you should run the game from source:
 ```
-git clone https://github.com/eivankin/minesweeper-pygame
+git clone https://github.com/Origamijr/minesweeper-pygame
 cd minesweeper-pygame
 pip install -r requirements.txt
+```
+## Usage
+```
 python main.py
 ```
-If commands "pip" and "python" are linked to Python 2 on your system, you must use "pip3" and "python3" instead.
-# Screenshots
-![Game process](https://i.imgur.com/wcF1f91.png)
-![Main screen](https://i.imgur.com/mO95lQe.png)
-![Settings screen](https://i.imgur.com/XUPdiPU.png)
-![Help screen](https://i.imgur.com/sXKP54t.png)
