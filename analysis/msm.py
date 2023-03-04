@@ -124,20 +124,20 @@ def get_msm_graph(B: Board, order=2):
         to_clear = to_clear.union(suggestions[0])
         to_flag = to_flag.union(suggestions[1])
     prune_msm_graph_duplicates(MSMs)
-    print(__flatten_msm_dict(MSMs), 'Initial Set ====================')
+    #print(__flatten_msm_dict(MSMs), 'Initial Set ====================')
 
     # Find all second-order MSMs by partitioning MSMs by subsets
     if order >= 2:
         while expand_msm_graph_once(MSMs):
-            print(__flatten_msm_dict(MSMs),'Expansion =======================================')
-            prune_msm_graph_duplicates(MSMs)
-            print(__flatten_msm_dict(MSMs),'Expansion Pruned =======================================')
+            #print(__flatten_msm_dict(MSMs),'Expansion =======================================')
+            #prune_msm_graph_duplicates(MSMs)
+            #print(__flatten_msm_dict(MSMs),'Expansion Pruned =======================================')
             if suggestions := minecount_reduce_msm_graph(MSMs):
                 to_clear = to_clear.union(suggestions[0])
                 to_flag = to_flag.union(suggestions[1])
-            print(__flatten_msm_dict(MSMs),'Reduced =======================================')
+            #print(__flatten_msm_dict(MSMs),'Reduced =======================================')
             prune_msm_graph_duplicates(MSMs)
-            print(__flatten_msm_dict(MSMs),'End of Iteration =======================================')
+            #print(__flatten_msm_dict(MSMs),'End of Iteration =======================================')
     
     # Other handling stuffs
     __update_board(B_orig, to_clear, to_flag)
@@ -206,7 +206,6 @@ def prune_msm_graph_duplicates(MSMs):
                     om = other_node.msm
                     # If bitmaps are equal, remove the first one in the edge (by position)
                     if cm == om: 
-                        print(cm, om, '923584750928374509283754098237049587230945872')
                         to_remove.add(edge.msm1)
     for dupe in to_remove:
         # Disconnect and remove node
@@ -329,7 +328,17 @@ def expand_msm_graph_once(MSMs):
                     # Create new node, and attempt to add later
                     dm_node = MSM_Node(dm)
                     to_add.add(dm_node)
+    added = False
     for new_node in to_add:
+        # Skip node if bitmap already in node TODO make more efficient
+        dupe = False
+        for other in __flatten_msm_dict(MSMs):
+            if other == new_node.msm: 
+                dupe = True
+                break
+        if dupe: break
+        added = True
+        # add to graph
         for d in itertools.product(range(-2,3), range(-2,3)):
             dcoord = tuple(np.add(new_node.pos(), d))
             if dcoord == CKEY: continue
@@ -337,7 +346,7 @@ def expand_msm_graph_once(MSMs):
                 for other in MSMs[dcoord]:
                     new_node.create_edge(other)
         MSMs[new_node.pos()].add(new_node)
-    return len(to_add) > 0
+    return added
                     
 
 def __update_board(B, to_clear, to_flag):
