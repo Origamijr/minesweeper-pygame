@@ -1,5 +1,8 @@
 import torch
 import torch.nn.functional as F
+import copy
+import itertools
+import numpy as np
 
 NEIGHBOR_KERNEL = torch.tensor([[[[1.,1.,1.],
                                   [1.,0.,1.],
@@ -14,14 +17,34 @@ class Board:
         self.C = C if C is not None else torch.zeros((1, 1, self.rows, self.cols))
         self.N = N if N is not None else -torch.ones((1, 1, self.rows, self.cols)) # -1 indicates don't care
 
+    def copy(self):
+        return copy.deepcopy(self)
+
     @staticmethod
     def empty(rows, cols):
         return Board(rows, cols, 0, C=torch.ones((1, 1, rows, cols)), N=torch.zeros((1, 1, rows, cols)))
+    
+    @staticmethod
+    def random_complete(rows, cols, n, seed=None, exclude=[]):
+        assert n < rows * cols
+        B = Board.empty(rows, cols)
+        coords = set(itertools.product(range(rows), range(cols)))
+        for e in exclude: coords.remove(e)
+        np.random.seed(seed)
+        ind = list(np.random.choice(np.arange(len(coords)), n, replace=False))
+        for x,y in np.array(list(coords))[ind]:
+            B.add_mine(x, y)
+        return B
 
     def is_valid(self, ignore_count=False):
+        # Check mutually exclusive information
         if torch.any(self.M + self.C > 1): return False
+
         if ignore_count: return True
+        # Check valid number of mines
         if torch.sum(self.M) > self.n: return False
+
+        # Check N is consistent
         sum_K_M = F.conv2d(F.pad(self.M, (1,1,1,1), value=0), NEIGHBOR_KERNEL)
         sum_K_C = F.conv2d(F.pad(self.C, (1,1,1,1), value=0), NEIGHBOR_KERNEL)
         mask_N = self.N != -1
@@ -31,6 +54,7 @@ class Board:
         return torch.all(self.M + self.C == 1).item()
 
     class BoardCell:
+        # Wrapper class to return a single slice of the board
         def __init__(self, M, C, N):
             self.M, self.C, self.N = M[0,0], C[0,0], N[0,0]
         def __repr__(self):
@@ -47,11 +71,12 @@ class Board:
         if torch.any(self.M > other.M): return False
         if torch.any(self.C > other.C): return False
         mask_N = self.N != -1
-        return not torch.any(mask_N*(self.C*self.N == self.C*other.N))
+        return torch.all(mask_N*self.C*self.N == mask_N*self.C*other.N)
         
     def __eq__(self, other):
         # Override = so B_1 = B_2 means the unknown squares have the same probabilities
-        
+        # TODO: consider allowing if square has probability 1 of being a mine, it's still equivalent to a mine
+
         # Find areas where one board has mines and the other doesn't
         mine_diff_1 = torch.max(self.M - other.M, 0).values
         mine_diff_2 = torch.max(other.M - self.M, 0).values
@@ -73,7 +98,7 @@ class Board:
     
     def __repr__(self):
         assert self.is_valid(ignore_count=True), "Invalid Board"
-        s = '-' * (self.cols + 2) + '\n'
+        s = '-' * (self.cols + 2) + f'{self.n}\n'
         for x in range(self.rows):
             s += '|'
             for y in range(self.cols):
@@ -92,30 +117,54 @@ class Board:
 
     def add_mine(self, x, y):
         if self.M[...,x,y] == 0:
+            self.n += 1
             self.M[...,x,y] = 1
             self.C[...,x,y] = 0
             self.N[...,x,y] = -1
-            N_inc = torch.zeros((1, 1, self.rows, self.cols))
-            N_inc[...,x,y] = 1
-            N_inc = F.conv_transpose2d(N_inc, NEIGHBOR_KERNEL)[...,1:-1,1:-1]
+
+            # Update neighboring N
+            N_inc = self.neighbor_mask(x, y)
             mask_N = self.N != -1
             self.N += N_inc * mask_N
-            self.n += 1
+
+    def subtract_mine(self, x, y, compute_n=True):
+        if self.M[...,x,y] == 1:
+            assert self.n >= 1
+            self.n -= 1
+            self.M[...,x,y] = 0
+            self.C[...,x,y] = 1
+
+            # update neighboring N
+            N_inc = self.neighbor_mask(x, y)
+            mask_N = self.N != -1
+            self.N -= N_inc * mask_N
+            
+            # compute N if complete information of area around cell
+            if compute_n and torch.all((self.M + self.C) * N_inc == N_inc):
+                self.N[...,x,y] = torch.sum(self.M * N_inc)
+
+    def neighbor_mask(self, x, y):
+            n_mask = torch.zeros((1, 1, self.rows, self.cols))
+            n_mask[...,x,y] = 1
+            n_mask = F.conv_transpose2d(n_mask, NEIGHBOR_KERNEL)[...,1:-1,1:-1]
+            return n_mask
+
             
     def set_mine(self, x, y, v=1):
-        if self.C[...,x,y] == 1: return
+        if self.M[...,x,y] + self.C[...,x,y] >= 1: return
         self.M[...,x,y] = v
 
-    def set_clear(self, x, y, N):
-        if self.M[...,x,y] == 1: return
+    def set_clear(self, x, y, N=-1):
+        if self.M[...,x,y] + self.C[...,x,y] >= 1: return
         self.C[...,x,y] = 1
         self.N[...,x,y] = N
 
     def get_neighbors(self, x, y):
         deltas = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)]
-        return [(x+dx, y+dy) for dx,dy in deltas if 0 <= x+dx < self.rows and 0 <= y+dy < self.cols]
+        return set([(x+dx, y+dy) for dx,dy in deltas if 0 <= x+dx < self.rows and 0 <= y+dy < self.cols])
     
     def get_opening(self, x, y):
+        # Perform a DFS to find all cells in an opening (i.e. all connected 0s and their neighbors)
         stack = [(x,y)]
         opening = set()
         while stack:
@@ -126,3 +175,11 @@ class Board:
                 if (ni, nj) in opening: continue
                 stack.append((ni, nj))
         return opening
+    
+    def get_mines(self):
+        return set([tuple(coord.numpy()) for coord in (self.M == 1).nonzero()[:,-2:]])
+    
+    def project_from(self, other):
+        assert self > other
+        mask = (self.C == 1) * (self.N == -1)
+        self.N = self.N * torch.logical_not(mask) + other.N * mask

@@ -32,23 +32,26 @@ class Board_UI(pg.sprite.Group):
         self.cells = [[Cell(x, y, cell_size, left_indent, top_indent, self)
                        for y in range(width)] for x in range(height)]
         self.first_move = True
-        self.mines = set()
         self.playing = True
         self.active_coords = None
         self.marked = set()
-        self.t_board = Board.empty(self.h, self.w)
-        self.k_board = Board(self.h, self.w, self.mines_count)
+        self.t_board = Board.empty(self.h, self.w) # "Truth" board
+        self.k_board = Board(self.h, self.w, self.mines_count) # "Knowledge" board
 
-    def init_mines(self, exclude_coords):
+    def init_mines(self, exclude_coords, seed=None):
+        # Create sample space of coordinates except for the first clicked cell
         coords = set(product(range(self.h), range(self.w)))
         coords.remove(exclude_coords)
+        np.random.seed(seed)
         ind = list(np.random.choice(np.arange(len(coords)),self.mines_count,replace=False))
         for x,y in np.array(list(coords))[ind]:
+            # Add mine to truth board from sample
             self.t_board.add_mine(x, y)
+
+        # Update UI elements to be consistent with truth board
         for x,y in product(range(self.h), range(self.w)):
             if self.t_board[x,y].M == 1:
                 self.cells[x][y].set_content('*')
-                self.mines.add((x,y))
             elif self.t_board[x,y].N > 0:
                 self.cells[x][y].set_content(int(self.t_board[x,y].N))
 
@@ -59,44 +62,61 @@ class Board_UI(pg.sprite.Group):
         return (i, j) if 0 <= i < self.h and 0 <= j < self.w else None
 
     def mouse_up(self, mouse_event):
+        # Proceed if there is an active cell
         if not self.playing or not self.active_coords: return
         cell_coords = self.active_coords
         i, j = cell_coords
         self.active_coords = None
+
+        # Skip if cell is marked (flag or ? mark)
         if self.cells[i][j].mark is not None: return
+
+        # If first cell clear, generate board and start timer
         if self.first_move:
             self.init_mines(cell_coords)
             self.first_move = False
             pg.time.set_timer(pg.USEREVENT, 1000)
+
         if self.k_board[i,j].N >= 0:
+            # Check to see if chording is possible if a number is clicked
             to_clear = set()
             mines = 0
             for ni, nj in self.t_board.get_neighbors(i,j):
                 self.cells[ni][nj].unhold()
                 if self.k_board[ni,nj].M == 1: mines += 1
                 else: to_clear = to_clear.union(self.t_board.get_opening(ni, nj))
+            # Do nothing if chord wasn't possible (invalid number of mines)
             if mines != self.k_board[i,j].N: return
         else:
+            # Find all cells that need to be cleared (>1 if clicked cell is a 0)
             to_clear = self.t_board.get_opening(i, j)
+        # Trigger lose flag if clicked cell is a mine
         lose = self.t_board[i,j].M == 1
 
+        # Clear all the cells in the opening
         while to_clear:
             x, y = to_clear.pop()
             self.cells[x][y].open()
             self.k_board.set_clear(x, y, self.t_board[x,y].N)
+
+        # Check for win (the knowledge board has cleared all cells needed to be cleared)
         win = torch.all(self.t_board.C == self.k_board.C)
 
-        # handle game over
+        # Handle game over
         if win or lose:
             pg.time.set_timer(pg.USEREVENT, 0)
-            to_clear = self.marked if win else self.mines.union(self.marked)
+            mines = self.t_board.get_mines()
+            to_clear = self.marked if win else mines.union(self.marked)
+            # Mark false flags
             for i, j in to_clear:
                 if (i, j) != cell_coords:
                     self.cells[i][j].open(False)
             if win:
-                for i, j in self.mines:
+                # Flag all remaining squares if win
+                for i, j in mines:
                     self.cells[i][j].mark = None
                     self.cells[i][j].set_mark()
+
             self.playing = False
             self.indicator.change_state(GameStates.WIN if win else GameStates.LOSE)
 
@@ -104,18 +124,23 @@ class Board_UI(pg.sprite.Group):
         if not self.playing or not (mouse_event.buttons[0] or mouse_event.buttons[1]): return
         cell_coords = self.pos2coord(mouse_event.pos)
         if cell_coords == self.active_coords: return
+
+        # Unhold the previously held cells
         if self.active_coords:
             i, j = self.active_coords
             self.cells[i][j].unhold()
             if self.k_board[i,j].N >= 0:
                 for ni, nj in self.t_board.get_neighbors(i, j):
                     self.cells[ni][nj].unhold()
+
+        # Hold the new cells
         if cell_coords:
             i, j = cell_coords
             self.cells[i][j].hold()
             if self.k_board[i,j].N >= 0:
                 for ni, nj in self.t_board.get_neighbors(i, j):
                     self.cells[ni][nj].hold()
+
         self.active_coords = cell_coords
 
     def mouse_down(self, mouse_event):
@@ -123,9 +148,10 @@ class Board_UI(pg.sprite.Group):
         cell_coords = self.pos2coord(mouse_event.pos)
         if cell_coords is None: return
         i, j = cell_coords
-        pressed = pg.mouse.get_pressed(5)
+
         match mouse_event.button:
             case 1 | 2:
+                # Initiate hold if left or middle click
                 if self.cells[i][j].mark is not None: return
                 self.indicator.change_state(GameStates.MOVE)
                 self.active_coords = cell_coords
@@ -134,6 +160,7 @@ class Board_UI(pg.sprite.Group):
                     for ni, nj in self.t_board.get_neighbors(i, j):
                         self.cells[ni][nj].hold()
             case 3:
+                # Mark on click if right click
                 deltas = {'F': 1, 'Q': 0, None: -1}
                 self.mine_counter.change_value(deltas[self.cells[i][j].mark])
                 self.cells[i][j].set_mark()
