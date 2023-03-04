@@ -144,10 +144,10 @@ class Board:
                 self.N[...,x,y] = torch.sum(self.M * N_inc)
 
     def neighbor_mask(self, x, y):
-            n_mask = torch.zeros((1, 1, self.rows, self.cols))
-            n_mask[...,x,y] = 1
-            n_mask = F.conv_transpose2d(n_mask, NEIGHBOR_KERNEL)[...,1:-1,1:-1]
-            return n_mask
+        n_mask = torch.zeros((1, 1, self.rows, self.cols))
+        n_mask[...,x,y] = 1
+        n_mask = F.conv_transpose2d(n_mask, NEIGHBOR_KERNEL)[...,1:-1,1:-1]
+        return n_mask
 
             
     def set_mine(self, x, y, v=1):
@@ -178,6 +178,12 @@ class Board:
     
     def get_mines(self):
         return set([tuple(coord.numpy()) for coord in (self.M == 1).nonzero()[:,-2:]])
+    
+    def reduce(self):
+        B = self.copy()
+        for mine_coord in B.get_mines():
+            B.subtract_mine(*mine_coord)
+        return B
     
     def project_from(self, other):
         assert self > other
