@@ -35,7 +35,8 @@ class MSM:
         return d
     def __mul__(self, other):
         product = self.bitmap * other.bitmap
-        d = MSM(product, min(self.n, other.n), torch.sum(product).item())
+        size = torch.sum(product).item()
+        d = MSM(product, min(self.n, other.n, size), size)
         d.pos = self.pos
         return d
     def __repr__(self):
@@ -161,18 +162,16 @@ def second_order_msm_reduction(MSMs, minecount_first = False, dbg=False):
     to_flag = set()
 
     if minecount_first:
-        if suggestions := minecount_reduce_msm_graph(MSMs):
+        if suggestions := minecount_reduce_msm_graph(MSMs, dbg=dbg):
             to_clear = to_clear.union(suggestions[0])
             to_flag = to_flag.union(suggestions[1])
-        prune_msm_graph_duplicates(MSMs)
+        prune_msm_graph_duplicates(MSMs, dbg=dbg)
 
     while __expand_msm_graph_once(MSMs):
         if suggestions := minecount_reduce_msm_graph(MSMs):
             to_clear = to_clear.union(suggestions[0])
             to_flag = to_flag.union(suggestions[1])
         prune_msm_graph_duplicates(MSMs)
-
-    if dbg: print(MSMs)
     
     return to_clear, to_flag
 
@@ -202,22 +201,23 @@ def create_first_order_msm_graph(B):
             if dcoord not in MSMs: continue
             for other in MSMs[dcoord]:
                 m.create_edge(other)
-        MSMs[coord] = set()
-        MSMs[coord].add(m)
+        MSMs[coord] = []
+        MSMs[coord].append(m)
 
         # Update the complement msm by subtracting current bitmap
         cmsm.bitmap *= (1 - bitmap)
 
     # Add complement msm to dictionary
-    MSMs[CKEY] = set()
-    MSMs[CKEY].add(MSM_Node(cmsm))
+    MSMs[CKEY] = []
+    MSMs[CKEY].append(MSM_Node(cmsm))
 
     return MSMs
     
 
-def prune_msm_graph_duplicates(MSMs):
+def prune_msm_graph_duplicates(MSMs, dbg=False):
     # Iterate over all MSMs in set
-    to_remove = set()
+    to_remove = []
+    to_keep_one = []
     for coord in MSMs:
         for curr_node in MSMs[coord]:
             # Iterate over all edges of the node
@@ -226,22 +226,32 @@ def prune_msm_graph_duplicates(MSMs):
                     cm = curr_node.msm
                     om = other_node.msm
                     # If bitmaps are equal, remove the first one in the edge (by position)
-                    if cm == om: 
-                        to_remove.add(edge.msm1)
+                    if cm == om:
+                        to_remove.append(edge.msm1)
+                        if cm.pos == om.pos:
+                            to_keep_one.append(edge.msm1)
+    i = 0
     for dupe in to_remove:
+        i += 1
         # Disconnect and remove node
         coord = dupe.pos()
-        removed = set()
+        removed = []
         # TODO bug with sets here? had to bandaid instead of calling remove
         #MSMs[coord].remove(dupe)
         while MSMs[coord] and (popped := MSMs[coord].pop()) != dupe:
-            removed.add(popped)
-        MSMs[coord] = MSMs[coord].union(removed)
+            removed.append(popped)
+        if dupe in to_keep_one:
+            while MSMs[coord] and (popped := MSMs[coord].pop()) != dupe:
+                removed.append(popped)
+            MSMs[coord] += removed
+            MSMs[coord].append(dupe)
+            if not MSMs[coord] and popped != dupe: continue
+        MSMs[coord] += removed
         dupe.disconnect()
             
 
 
-def minecount_reduce_msm_graph(MSMs):
+def minecount_reduce_msm_graph(MSMs, dbg=False):
     """
     Iterate over an MSM graph and remove nodes where either:
     - The number of mines is 0
@@ -258,6 +268,7 @@ def minecount_reduce_msm_graph(MSMs):
         # Iterate over all MSMs in set
         for coord in MSMs:
             to_remove = []
+            to_add = []
             for msm_node in MSMs[coord]:
                 if msm_node.n() == 0:
                     # If the number is 0, it can be set to don't care and it's neighbors can be cleared
@@ -272,14 +283,11 @@ def minecount_reduce_msm_graph(MSMs):
                             for edge, other in msm_node.edges[edge_coord].items():
                                 intersection = edge.intersection
                                 diff = torch.sum(intersection.bitmap).item()
-                                om = other.msm
-                                # Shrink the other node and update edges
-                                om.bitmap = om.bitmap * (1 - intersection.bitmap)
-                                om.size -= diff
-                                assert om.size >= 0 and om.n <= om.size, 'Invalid Clear'
-                                to_update.append(other)
-                        for q in to_update:
-                            q.update_edges()
+                                # Remove the other node too and add the difference
+                                to_remove.append(other)
+                                diff = other.msm - intersection
+                                diff.n = other.n()
+                                to_add.append(MSM_Node(diff))
                     to_remove.append(msm_node)
 
                 elif msm_node.size() == msm_node.n():
@@ -295,24 +303,35 @@ def minecount_reduce_msm_graph(MSMs):
                             for edge, other in msm_node.edges[edge_coord].items():
                                 intersection = edge.intersection
                                 diff = torch.sum(intersection.bitmap).item()
-                                om = other.msm
-                                # Shrink the other node and update edges
-                                om.bitmap = om.bitmap * (1 - intersection.bitmap)
-                                om.n -= diff
-                                om.size -= diff
-                                assert om.size >= 0 and om.n >= 0, 'Invalid Mine'
-                                to_update.append(other)
-                        for q in to_update:
-                            q.update_edges()
+                                # Remove the other node too and add the difference
+                                to_remove.append(other)
+                                diff = other.msm - intersection
+                                diff.n = other.n() - intersection.size
+                                to_add.append(MSM_Node(diff))
                     to_remove.append(msm_node)
             for counted in to_remove: 
-                removed = set()
+                removed = []
+                pos = counted.pos()
                 # TODO bug with sets here? had to bandaid instead of calling remove
                 #MSMs[coord].remove(counted)
-                while MSMs[coord] and (popped := MSMs[coord].pop()) != counted:
-                    removed.add(popped)
-                MSMs[coord] = MSMs[coord].union(removed)
+                while MSMs[pos] and (popped := MSMs[pos].pop()) != counted:
+                    removed.append(popped)
+                MSMs[pos] += removed
                 counted.disconnect()
+            for shrunk in to_add: 
+                # Skip node if bitmap already in node TODO make more efficient
+                dupe = False
+                for other in flatten_msm_dict(MSMs):
+                    if other == shrunk: 
+                        dupe = True
+                        break
+                if dupe: continue
+                # add to graph
+                for dcoord in shrunk.edges.keys():
+                    if dcoord not in MSMs: continue
+                    for other in MSMs[dcoord]:
+                        shrunk.create_edge(other)
+                MSMs[shrunk.pos()].append(shrunk)
             if minecounted: break
 
     if len(to_clear)==0 and len(to_flag)==0: 
@@ -322,7 +341,7 @@ def minecount_reduce_msm_graph(MSMs):
 
 def __expand_msm_graph_once(MSMs):
     # Iterate over all MSMs in set
-    to_add = set()
+    to_add = []
     for coord in MSMs:
         for curr_node in MSMs[coord]:
             # Iterate over all edges of the node
@@ -335,22 +354,18 @@ def __expand_msm_graph_once(MSMs):
                     # Verify subset relations
                     if edge.intersection == cm:
                         dm = om - edge.intersection
-                        dm_coord = dm.pos
                     elif edge.intersection == om:
                         dm = cm - edge.intersection
-                        dm_coord = dm.pos
                     # Verify 1-2 relationship (TODO is there a better way?)
                     elif om.n - cm.n == om.size - im.size:
                         dm = om - edge.intersection
-                        dm_coord = dm.pos
                     elif cm.n -om.n==cm.size-im.size:
                         dm = cm - edge.intersection
-                        dm_coord = dm.pos
                     else: continue #otherwise continue on
 
                     # Create new node, and attempt to add later
                     dm_node = MSM_Node(dm)
-                    to_add.add(dm_node)
+                    to_add.append(dm_node)
     added = False
     for new_node in to_add:
         # Skip node if bitmap already in node TODO make more efficient
@@ -366,6 +381,6 @@ def __expand_msm_graph_once(MSMs):
             if dcoord not in MSMs: continue
             for other in MSMs[dcoord]:
                 new_node.create_edge(other)
-        MSMs[new_node.pos()].add(new_node)
+        MSMs[new_node.pos()].append(new_node)
     return added
                     

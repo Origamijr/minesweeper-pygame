@@ -10,8 +10,7 @@ def update_board(B, to_clear, to_flag):
         B.set_mine(*coord)
 
 def flatten_msm_dict(d):
-    MSMs = set()
+    MSMs = []
     for coord in d:
-        msm_set = set(d[coord])
-        MSMs = MSMs.union(msm_set)
-    return list(MSMs)
+        MSMs += d[coord]
+    return MSMs
