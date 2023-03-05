@@ -30,9 +30,12 @@ def calculate_probabilities(B: Board):
     total_possibilities = 0
     c_possiblities = 0
     for n, count in total_counts.items():
+        if n > num_mines: continue
         total_possibilities += count * comb(c_size, num_mines - n)
+        if num_mines - n - 1 < 0 or c_size == 0: continue
         c_possiblities += count * comb(c_size - 1, num_mines - n - 1)
     c_prob = c_possiblities / total_possibilities
+
 
     probabilities = torch.zeros(B.rows, B.cols)
     for i, (bitmap, component) in enumerate(zip(bitmaps, components)):
@@ -50,7 +53,7 @@ def calculate_probabilities(B: Board):
                 cond_counts = merge_disjoint_counts(cond_counts, count)
             possibilities = 0
             for n, count in cond_counts.items():
-                possibilities += count * comb(c_size - 1, num_mines - n)
+                possibilities += count * comb(c_size, num_mines - n - 1)
             probabilities[coord] = possibilities / total_possibilities
     for coord in to_flag:
         probabilities[coord] = 1

@@ -126,7 +126,7 @@ def get_msm_graph(B: Board, order=2, flatten = False):
 
     # Find all first-order MSMs induced by numbered cells
     MSMs = create_first_order_msm_graph(B)
-    
+
     # Prune graphs and remove minecountable regions
     prune_msm_graph_duplicates(MSMs)
     if suggestions := minecount_reduce_msm_graph(MSMs):
@@ -144,15 +144,13 @@ def get_msm_graph(B: Board, order=2, flatten = False):
     update_board(B_orig, to_clear, to_flag)
     update_board(B, to_clear, to_flag)
     B = B.reduce()
-    for c_msm in MSMs[CKEY]:
-        c_bm = c_msm.bitmap()
-    if torch.sum(c_bm) == 0:
+    if len(MSMs[CKEY]) == 0 or torch.sum((c_bm := MSMs[CKEY][0].bitmap())) == 0:
         MSMs.pop(CKEY)
     elif B.n == torch.sum(c_bm):
-        to_flag = to_clear.union(get_one_ind(c_bm))
+        to_flag = to_clear.union(get_one_ind(c_bm[0,0,...]))
         MSMs.pop(CKEY)
     elif B.n == 0:
-        to_clear = to_clear.union(get_one_ind(c_bm))
+        to_clear = to_clear.union(get_one_ind(c_bm[0,0,...]))
         MSMs.pop(CKEY)
     return B_orig, flatten_msm_dict(MSMs) if flatten else MSMs, to_clear, to_flag
     
@@ -276,7 +274,6 @@ def minecount_reduce_msm_graph(MSMs, dbg=False):
                     if len(neighbors) != 0: 
                         minecounted = True
                         to_clear = to_clear.union(neighbors)
-                        to_update = []
                         # Iterate over edges to modify neighbors
                         for edge_coord in msm_node.edges:
                             for edge, other in msm_node.edges[edge_coord].items():
@@ -296,7 +293,6 @@ def minecount_reduce_msm_graph(MSMs, dbg=False):
                     if len(neighbors) != 0: 
                         minecounted = True
                         to_flag = to_flag.union(neighbors)
-                        to_update = []
                         # Iterate over edges to modify neighbors
                         for edge_coord in msm_node.edges:
                             for edge, other in msm_node.edges[edge_coord].items():

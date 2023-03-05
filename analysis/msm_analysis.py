@@ -10,7 +10,7 @@ def seperate_connected_msm_components(MSMs):
     # This is just dfs
     flat_graph = flatten_msm_dict(MSMs)
     assert len(flat_graph) > 0
-    if len(flat_graph) == 1: return MSMs
+    if len(flat_graph) == 1: return [MSMs]
     components = []
     visited = []
     while len(visited) != len(flat_graph):
@@ -64,7 +64,7 @@ def find_num_solutions(MSMs, min_n=None, max_n=None, seed=None, dbg=False):
     if seed: torch.manual_seed(seed)
     random_bitmap = flat_graph[torch.randint(len(flat_graph),(1,)).item()]
     random_candidates = random_bitmap.bitmap().nonzero()
-    if len(random_candidates) == 0: print(flat_graph)
+    #if len(random_candidates) == 0: print(flat_graph)
     coord = tuple(random_candidates[torch.randint(len(random_candidates),(1,))].numpy().flatten())
     bitmap = torch.zeros(random_bitmap.bitmap().shape)
     bitmap[0,0,coord[2],coord[3]] = 1
