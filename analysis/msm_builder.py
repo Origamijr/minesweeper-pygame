@@ -40,7 +40,7 @@ class MSM:
         d.pos = self.pos
         return d
     def __repr__(self):
-        return repr(self.n) + ' mine(s), ' + repr(self.pos) + '=====\n' + repr(self.bitmap[0,0,...].numpy()) + '\n'
+        return repr(self.n) + ' mine(s), ' + repr(self.pos) + ' ' + repr(int(self.size)) + '=====\n' + repr(self.bitmap[0,0,...].numpy()) + '\n'
 
 class MSM_Node:
     # Wrapper class for MSM to define relationships between other nearby MSM
@@ -184,7 +184,7 @@ def create_first_order_msm_graph(B):
     An edge exists between two nodes if they intersect (only nodes in radius 2 can intersect)
     """
     MSMs = dict()
-    cmsm = MSM((1 - B.C)) # The trivial MSM created by the area not touching any number
+    cmsm = MSM((1 - B.C), pos=CKEY) # The trivial MSM created by the area not touching any number
 
     # Find the MSM induced by each number
     coords = get_one_ind(B.N[0,0,...] > -1)
@@ -220,6 +220,7 @@ def prune_msm_graph_duplicates(MSMs, dbg=False):
     to_keep_one = []
     for coord in MSMs:
         for curr_node in MSMs[coord]:
+            if curr_node.size() == 0: to_remove.append(curr_node) # TODO bug, there shouldn't be any empty nodes
             # Iterate over all edges of the node
             for edge_coord in curr_node.edges:
                 for edge, other_node in curr_node.edges[edge_coord].items():
@@ -230,9 +231,7 @@ def prune_msm_graph_duplicates(MSMs, dbg=False):
                         to_remove.append(edge.msm1)
                         if cm.pos == om.pos:
                             to_keep_one.append(edge.msm1)
-    i = 0
     for dupe in to_remove:
-        i += 1
         # Disconnect and remove node
         coord = dupe.pos()
         removed = []
