@@ -12,3 +12,17 @@ pip install -r requirements.txt
 ```
 python main.py
 ```
+## TODO
+- Rewrite analysis to use a simpler data structure to store MSMs
+- UI for analyzer
+
+------------------30
+|0001            |
+|1112            |
+|  3             |
+|                |
+|                |
+|                |
+|                |
+|                |
+------------------
