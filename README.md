@@ -13,5 +13,9 @@ pip install -r requirements.txt
 python main.py
 ```
 ## TODO
-- Rewrite analysis to use a simpler data structure to store MSMs
+- Clean code
 - UI for analyzer
+- Optimize solver
+  - MSMs should be continuous, so there shouldn't be a need to regenerate them every board state
+  - Counts for disjoint MSMs are unaffected by changes in the counts for the other. This can probably save some computation if a live DFS can be implemented
+- Missing a rule that would encompass these patterns: ![](assets/missing.png)
