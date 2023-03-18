@@ -1,10 +1,10 @@
 import torch
+from core.bitmap import Bitmap
 from analysis.utils import flatten_msm_dict
 from analysis.msm_builder import MSM, MSM_Node, second_order_msm_reduction
 import copy
 from math import comb
 import itertools
-
 
 def seperate_connected_msm_components(MSMs):
     # This is just dfs
@@ -34,6 +34,52 @@ def seperate_connected_msm_components(MSMs):
         components.append(component)
     return components
 
+def try_step_msm(MSMs, clear_bitmap=None, mine_bitmap=None, verbose=0):
+    """
+    Logic reduce a MSM graph with a set of spaces to assume clear and/or mine
+    """
+
+    # Assert nonoverlapping bitmaps
+    assert (clear_bitmap is None or mine_bitmap is None) or torch.sum(mine_bitmap * clear_bitmap) == 0
+    MSMs = copy.deepcopy(MSMs) # TODO find a better way to copy
+
+    # Create MSMs based on the bitmaps and insert them into the graph
+    if clear_bitmap is not None:
+        clear_bitmap = clear_bitmap.clone()
+        # Set position of bitmap to arbitrary location in graph (if diameter>2, may cause errors)
+        pos = clear_bitmap.nonzero()[0]
+        num_clear = clear_bitmap.sum()
+        # Create a Node for the cleared positions with 0 mines
+        clear_node = MSM_Node(MSM(clear_bitmap, n=0, pos=pos, size=num_clear))
+        # Insert node into graph
+        for dcoord in clear_node.edges.keys():
+            if dcoord not in MSMs: continue
+            for other in MSMs[dcoord]:
+                clear_node.create_edge(other)
+        if pos not in MSMs: MSMs[pos] = []
+        MSMs[pos].append(clear_node)
+
+    # Identical to above
+    if mine_bitmap is not None:
+        mine_bitmap = mine_bitmap.clone()
+        # Set position of bitmap to arbitrary location in graph (if diameter>2, may cause errors)
+        pos = mine_bitmap.nonzero()[0]
+        num_mine = mine_bitmap.sum()
+        # Create a Node for the cleared positions with all mines
+        mine_node = MSM_Node(MSM(mine_bitmap, n=num_mine, pos=pos, size=num_mine))
+        # Insert node into graph
+        for dcoord in mine_node.edges.keys():
+            if dcoord not in MSMs: continue
+            for other in MSMs[dcoord]:
+                mine_node.create_edge(other)
+        if pos not in MSMs: MSMs[pos] = []
+        MSMs[pos].append(mine_node)
+
+    # Solve the graph with the new node inserted
+    to_clear, to_flag = second_order_msm_reduction(MSMs, minecount_first=True, verbose=verbose)
+
+    return MSMs, to_clear, to_flag
+
 def find_num_solutions(MSMs, min_n=None, max_n=None, seed=None, verbose=0):
     """
     Find solutions using branch and bound. Faster if connected component.
@@ -59,16 +105,13 @@ def find_num_solutions(MSMs, min_n=None, max_n=None, seed=None, verbose=0):
             counts[n] = comb(size, n)
         return counts
     
-    # Otherwise, do branch and bound
     # TODO, I think there's a way to use connected components before branching and bounding.
+
+    # Otherwise, do branch and bound
     # Select arbitrary coordinate covered by one MSM
-    if seed: torch.manual_seed(seed)
-    random_bitmap = flat_graph[0 if True else torch.randint(len(flat_graph),(1,)).item()]
-    random_candidates = random_bitmap.bitmap().nonzero()
-    #if len(random_candidates) == 0: print(flat_graph)
-    coord = tuple(random_candidates[0 if True else torch.randint(len(random_candidates),(1,))].numpy().flatten())
-    bitmap = torch.zeros(random_bitmap.bitmap().shape)
-    bitmap[0,0,coord[2],coord[3]] = 1
+    coord = select_branch_coord(flat_graph, seed)
+    bitmap = Bitmap(flat_graph[0].bitmap().rows, flat_graph[0].bitmap().cols)
+    bitmap[coord] = 1
 
     # Count the cases if a mine is present at the selected coordinate
     if verbose >= 3: print(f'Try mine at {coord}')
@@ -90,49 +133,19 @@ def find_num_solutions(MSMs, min_n=None, max_n=None, seed=None, verbose=0):
 
     return counts
     
+def find_solutions(MSMs, min_n=None, max_n=None, seed=None, verbose=0):
+    """
+    Find solutions using branch and bound. Faster if connected component.
+    """
+    # TODO
+    pass
 
-def try_step_msm(MSMs, clear_bitmap=None, mine_bitmap=None, verbose=0):
-    # Assert nonoverlapping bitmaps
-    assert (clear_bitmap is None or mine_bitmap is None) or torch.sum(mine_bitmap * clear_bitmap) == 0
-    MSMs = copy.deepcopy(MSMs) # TODO find a better way to copy
-
-    # Create MSMs based on the bitmaps and insert them into the graph
-    if clear_bitmap is not None:
-        clear_bitmap = clear_bitmap.clone()
-        # Set position of bitmap to arbitrary location in graph (if diameter>2, may cause errors)
-        pos = tuple(clear_bitmap[0,0,...].nonzero()[0].numpy())
-        num_clear = torch.sum(clear_bitmap).item()
-        # Create a Node for the cleared positions with 0 mines
-        clear_node = MSM_Node(MSM(clear_bitmap, n=0, pos=pos, size=num_clear))
-        # Insert node into graph
-        for dcoord in clear_node.edges.keys():
-            if dcoord not in MSMs: continue
-            for other in MSMs[dcoord]:
-                clear_node.create_edge(other)
-        if pos not in MSMs: MSMs[pos] = []
-        MSMs[pos].append(clear_node)
-
-    # Identical to above
-    if mine_bitmap is not None:
-        mine_bitmap = mine_bitmap.clone()
-        # Set position of bitmap to arbitrary location in graph (if diameter>2, may cause errors)
-        pos = tuple(mine_bitmap[0,0,...].nonzero()[0].numpy())
-        num_mine = torch.sum(mine_bitmap).item()
-        # Create a Node for the cleared positions with all mines
-        mine_node = MSM_Node(MSM(mine_bitmap, n=num_mine, pos=pos, size=num_mine))
-        # Insert node into graph
-        for dcoord in mine_node.edges.keys():
-            if dcoord not in MSMs: continue
-            for other in MSMs[dcoord]:
-                mine_node.create_edge(other)
-        if pos not in MSMs: MSMs[pos] = []
-        MSMs[pos].append(mine_node)
-
-    # Solve the graph with the new node inserted
-    to_clear, to_flag = second_order_msm_reduction(MSMs, minecount_first=True, verbose=verbose)
-
-    return MSMs, to_clear, to_flag
-
+def select_branch_coord(flat_graph, seed=None):
+    if seed: torch.manual_seed(seed)
+    random_bitmap = flat_graph[0 if True else torch.randint(len(flat_graph),(1,)).item()].bitmap()
+    random_candidates = random_bitmap.nonzero()
+    coord = random_candidates[0 if True else torch.randint(len(random_candidates),(1,))]
+    return coord
 
 def quine_mcclusky_subset():
     # Would finding a subset cover with minimal overlap help?

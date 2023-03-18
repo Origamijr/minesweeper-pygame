@@ -1,112 +1,14 @@
 from core.board import Board
+from core.bitmap import Bitmap
 import torch
 import torch.nn.functional as F
 from collections import ChainMap
 from analysis.utils import get_one_ind, flatten_msm_dict, update_board
-import copy
-
-WITNESS_KERNEL = torch.tensor([[[[1.,1.,1.],
-                                 [1.,1.,1.],
-                                 [1.,1.,1.]]]])
+from analysis.msm_graph import MSM, MSM_Edge, MSM_Node
 
 CKEY = (-1,-1)
 
-class MSM:
-    """
-    Represents a Mutually Shared Mine (MSM) region:
-    A set of coordinates such that it is known that exactly $n$ mines exists
-    $n$ is None for aggregate MSM regions (e.g. the compelment set)
-    - Bitmap : (1,1,r,c) Tensor
-        contains a 1 at the coordinates included in the set
-    - n : int
-        number of mines in the region
-    - pos : tuple
-        coordinate of region if centered on a cell
-    """
-    def __init__(self, bitmap, n=None, pos=None, size=None):
-        self.bitmap, self.n, self.pos= bitmap, n, pos
-        self.size = torch.sum(self.bitmap).item() if size is None else size
-    def __eq__(self, other):
-        return torch.all(self.bitmap == other.bitmap)
-    def __hash__(self):
-        return hash(self.bitmap.numpy().tostring())
-    def __sub__(self, other):
-        return MSM(self.bitmap * (1 - other.bitmap), pos=self.pos)
-    def __mul__(self, other):
-        return MSM(self.bitmap * other.bitmap, pos=self.pos)
-    def __repr__(self):
-        return repr(self.n) + ' mine(s), ' + repr(self.pos) + ' ' + repr(int(self.size)) + '=====\n' + repr(self.bitmap[0,0,...].numpy()) + '\n'
-
-class MSM_Node:
-    # Wrapper class for MSM to define relationships between other nearby MSM
-    def __init__(self, msm):
-        self.msm = msm
-        self.witnesses = F.conv_transpose2d(msm.bitmap, WITNESS_KERNEL)[...,1:-1,1:-1]
-        #self.vore_witnesses = self.witnesses == self.witnesses[...,msm.pos[0],msm.pos[1]] if msm.pos else None
-        self.witnesses = self.witnesses != 0
-        self.edges = {coord: dict() for coord in get_one_ind(self.witnesses[0,0,...])}
-        self.edge_list = None
-    def __eq__(self, other):
-        return self.msm == other.msm
-    def __hash__(self):
-        return hash(self.msm)
-    def __repr__(self):
-        return repr(self.msm)
-    def bitmap(self): return self.msm.bitmap
-    def n(self): return self.msm.n
-    def size(self): return self.msm.size
-    def pos(self): return self.msm.pos
-    def get_edges(self):
-        return [(edge, other) for edge, other in ChainMap(*[d for d in self.edges.values() if len(d) > 0]).items()]
-    def create_edge(self, other):
-        if other.pos() in self.edges and self.pos() in other.edges:
-            edge = MSM_Edge(self, other)
-            if torch.sum(edge.intersection.bitmap) == 0: return
-            self.edges[other.pos()][edge] = other
-            other.edges[self.pos()][edge] = self
-        self.edge_list = None
-    def remove_edge(self, edge_info):
-        edge, other = edge_info
-        if edge not in self.edges[other.pos()]: return 
-        self.edges[other.pos()].pop(edge)
-        self.edge_list = None
-    def disconnect(self):
-        # Remove self from edge list of neighbors
-        for edge_coord in self.edges:
-            for edge, other in self.edges[edge_coord].items():
-                other.remove_edge((edge, self))
-        self.edge_list = None
-    def update_edges(self):
-        # Update intersections and prune edges no longer intersecting
-        for edge_coord in self.edges:
-            to_remove = []
-            for edge, other in self.edges[edge_coord].items():
-                if edge.update(): to_remove.append((edge, other))
-            for edge, other in to_remove: 
-                self.edges[edge_coord].pop(edge)
-                other.remove_edge((edge, self))
-        self.edge_list = None
-
-
-class MSM_Edge:
-    # Contains some information about the intersection between nodes
-    def __init__(self, msm1, msm2):
-        # Enforce ordering, so duplicates can be effectively removed
-        if msm1.pos()[0] > msm2.pos()[0] \
-            or (msm1.pos()[0] == msm2.pos()[0] and msm1.pos()[1] >= msm2.pos()[1]):
-            self.msm1 = msm1
-            self.msm2 = msm2
-        else:
-            self.msm1 = msm2
-            self.msm2 = msm1
-        self.intersection = msm1.msm * msm2.msm
-    def update(self):
-        # Returns True if the nodes no longer intersect
-        self.intersection = self.msm1.msm * self.msm2.msm
-        return torch.sum(self.intersection.bitmap) == 0
-        
-
-def get_msm_graph(B: Board, order=2, flatten = False, verbose=0):
+def get_msm_graph(B: Board, order=2, flatten = False, reduced_board=False, verbose=0):
     assert order in [1,2]
 
     # mine reduce the board completely
@@ -120,16 +22,11 @@ def get_msm_graph(B: Board, order=2, flatten = False, verbose=0):
     # Find all first-order MSMs induced by numbered cells
     MSMs = create_first_order_msm_graph(B)
 
-    # Prune graphs and remove minecountable regions
-    prune_msm_graph_duplicates(MSMs)
-    if suggestions := __minecount_reduce_msm_graph(MSMs):
-        to_clear = to_clear.union(suggestions[0])
-        to_flag = to_flag.union(suggestions[1])
-    prune_msm_graph_duplicates(MSMs)
-
     # Find all second-order MSMs by partitioning MSMs by subsets and 1-2 rule
     if order >= 2:
-        suggestions = second_order_msm_reduction(MSMs, verbose=verbose)
+        prune_msm_graph_duplicates(MSMs)
+
+        suggestions = second_order_msm_reduction(MSMs, minecount_first=True, verbose=verbose)
         to_clear = to_clear.union(suggestions[0])
         to_flag = to_flag.union(suggestions[1])
     
@@ -137,18 +34,20 @@ def get_msm_graph(B: Board, order=2, flatten = False, verbose=0):
     update_board(B_orig, to_clear, to_flag)
     update_board(B, to_clear, to_flag)
     B = B.reduce()
-    if len(MSMs[CKEY]) == 0 or torch.sum((c_bm := MSMs[CKEY][0].bitmap())) == 0:
+    if len(MSMs[CKEY]) == 0 or (c_bm := MSMs[CKEY][0].bitmap()).sum() == 0:
         MSMs.pop(CKEY)
-    elif B.n == torch.sum(c_bm):
-        to_flag = to_clear.union(get_one_ind(c_bm[0,0,...]))
+    elif B.n == c_bm.sum():
+        to_flag = to_flag.union(set(c_bm.nonzero()))
         MSMs.pop(CKEY)
     elif B.n == 0:
-        to_clear = to_clear.union(get_one_ind(c_bm[0,0,...]))
+        to_clear = to_clear.union(set(c_bm.nonzero()))
         MSMs.pop(CKEY)
-    return B_orig, flatten_msm_dict(MSMs) if flatten else MSMs, to_clear, to_flag
+    return B if reduced_board else B_orig, flatten_msm_dict(MSMs) if flatten else MSMs, to_clear, to_flag
     
 
-def second_order_msm_reduction(MSMs, minecount_first = False, verbose=0):
+def second_order_msm_reduction(MSMs, minecount_first=False, verbose=0):
+    # MSM reduction via repeated minecount reduction and graph extension
+
     to_clear = set()
     to_flag = set()
 
@@ -167,7 +66,7 @@ def second_order_msm_reduction(MSMs, minecount_first = False, verbose=0):
     return to_clear, to_flag
 
 
-def create_first_order_msm_graph(B):
+def create_first_order_msm_graph(B:Board):
     """
     Constructs a MSM graph from a minesweeper board based on the numbers on the board.
     Assumes board contains no known mines (i.e. is board reduced)
@@ -175,19 +74,19 @@ def create_first_order_msm_graph(B):
     An edge exists between two nodes if they intersect (only nodes in radius 2 can intersect)
     """
     MSMs = dict()
-    cmsm = MSM((1 - B.C), pos=CKEY) # The trivial MSM created by the area not touching any number
-
+    cmsm_bitmap = -B.C # The trivial MSM created by the area not touching any number
+    
     # Find the MSM induced by each number
-    coords = get_one_ind(B.N[0,0,...] > -1)
-    coords.sort()
+    coords = (-B.N.get_mask(-1)).nonzero()
     for coord in coords:
         # Get the bitmap and number of mines
-        bitmap = (B.neighbor_mask(*coord) * (1 - B.C))
+        bitmap = B.neighbor_mask(*coord) - B.C
+        if bitmap.sum() == 0: continue # skip numbers with no unknowns
         mines = B[coord].N.item()
 
         # Create the node and connect to edges backwards
         m = MSM_Node(MSM(bitmap, n=mines, pos=coord))
-        # Coords are iterated lexicographically (see torch.nonzero)
+        # Coords are iterated lexicographically
         for dcoord in m.edges.keys():
             if dcoord not in MSMs: continue
             for other in MSMs[dcoord]:
@@ -196,11 +95,11 @@ def create_first_order_msm_graph(B):
         MSMs[coord].append(m)
 
         # Update the complement msm by subtracting current bitmap
-        cmsm.bitmap *= (1 - bitmap)
+        cmsm_bitmap -= bitmap
 
     # Add complement msm to dictionary
     MSMs[CKEY] = []
-    MSMs[CKEY].append(MSM_Node(cmsm))
+    MSMs[CKEY].append(MSM_Node(MSM(cmsm_bitmap, pos=CKEY)))
 
     return MSMs
     
@@ -249,7 +148,7 @@ def __minecount_reduce_msm_graph(MSMs, verbose=0):
     Remove them, and update their neighbors accordingly.
     Returns the coordinates of cells that should be cleared and flagged
     """
-    if verbose >= 3: print('Mineccount reduce ', '=' * 80)
+    if verbose >= 4: print('Mineccount reduce ', '=' * 80)
     to_clear = set()
     to_flag = set()
     # Repeat while a change occured
@@ -263,7 +162,7 @@ def __minecount_reduce_msm_graph(MSMs, verbose=0):
             for msm_node in MSMs[coord]:
                 # If the number is 0, its neighbors can be cleared
                 if msm_node.n() == 0:
-                    neighbors = get_one_ind(msm_node.bitmap()[0,0,...])
+                    neighbors = msm_node.bitmap().nonzero()
                     # Verify there is an effect
                     if len(neighbors) != 0: 
                         minecounted = True
@@ -272,7 +171,7 @@ def __minecount_reduce_msm_graph(MSMs, verbose=0):
                         for edge_coord in msm_node.edges:
                             for edge, other in msm_node.edges[edge_coord].items():
                                 intersection = edge.intersection
-                                diff = torch.sum(intersection.bitmap).item()
+                                diff = intersection.bitmap.sum()
                                 # Remove the other node too and add the difference
                                 to_remove.append(other)
                                 diff = other.msm - intersection
@@ -282,7 +181,7 @@ def __minecount_reduce_msm_graph(MSMs, verbose=0):
 
                 # If the number is equal to the number of unknown cells, all the cells contain mines
                 elif msm_node.size() == msm_node.n():
-                    neighbors = get_one_ind(msm_node.bitmap()[0,0,...])
+                    neighbors = msm_node.bitmap().nonzero()
                     # Verify there is an effect
                     if len(neighbors) != 0: 
                         minecounted = True
@@ -291,7 +190,7 @@ def __minecount_reduce_msm_graph(MSMs, verbose=0):
                         for edge_coord in msm_node.edges:
                             for edge, other in msm_node.edges[edge_coord].items():
                                 intersection = edge.intersection
-                                diff = torch.sum(intersection.bitmap).item()
+                                diff = intersection.bitmap.sum()
                                 # Remove the other node too and add the difference
                                 to_remove.append(other)
                                 diff = other.msm - intersection
@@ -300,8 +199,8 @@ def __minecount_reduce_msm_graph(MSMs, verbose=0):
                     to_remove.append(msm_node)
             
             # Remove and add the nodes that should be changed
-            if verbose >= 3 and len(to_remove) > 0: print(f"to_remove: {to_remove}")
-            if verbose >= 3 and len(to_add) > 0: print(f"to_add: {to_add}")
+            if verbose >= 4 and len(to_remove) > 0: print(f"to_remove: {to_remove}")
+            if verbose >= 4 and len(to_add) > 0: print(f"to_add: {to_add}")
             for counted in to_remove: 
                 removed = []
                 pos = counted.pos()
@@ -335,19 +234,21 @@ def __minecount_reduce_msm_graph(MSMs, verbose=0):
 
 def __expand_msm_graph_once(MSMs, verbose=0):
     # Iterate over all MSMs in set
-    if verbose >= 3: print('expansion ', '=' * 80)
+    if verbose >= 4: print('expansion ', '=' * 80)
     to_add = []
     for coord in MSMs:
         for curr_node in MSMs[coord]:
             cm = curr_node.msm
+            #if verbose >= 3: print(cm, curr_node.edges)
             # Iterate over all independent subsets of edges of the node
             for inter_bitmap, inter_n, edges in __find_all_independent_neighbor_edges(curr_node):
+                #if verbose >= 3: print(inter_bitmap, inter_n, edges)
                 # If dealing with only one edge, just verify subset relations
                 if len(edges) == 1:
                     edge = edges[0][0]
                     om = edges[0][1].msm
                     if edge.intersection == om:
-                        if verbose >= 3: print('found subset')
+                        if verbose >= 4: print('found subset')
                         dm = cm - edge.intersection
                         dm.n = cm.n - om.n
                         to_add.append(MSM_Node(dm))
@@ -355,40 +256,15 @@ def __expand_msm_graph_once(MSMs, verbose=0):
 
                 # Verify 1-2 relationship (TODO is there a better way?)
                 diff = cm.bitmap - inter_bitmap
-                diff_size = int(torch.sum(diff))
+                diff_size = diff.sum()
                 if diff_size > 0 and cm.n - inter_n == diff_size:
-                    if verbose >= 3: print(f'found 1-2 rule')
+                    if verbose >= 4: print(f'found 1-2 rule')
                     dm = MSM(diff, n=cm.n-inter_n, size=diff_size, pos=cm.pos)
                     to_add.append(MSM_Node(dm))
-            """
-            for edge_coord in curr_node.edges:
-                for edge, other_node in curr_node.edges[edge_coord].items():
-                    cm = curr_node.msm
-                    om = other_node.msm
-                    im = edge.intersection
-
-                    # Verify subset relations
-                    if edge.intersection == cm:
-                        dm = om - edge.intersection
-                        dm.n = om.n - cm.n
-                    elif edge.intersection == om:
-                        dm = cm - edge.intersection
-                        dm.n = cm.n - om.n
-                    # Verify 1-2 relationship (TODO is there a better way?)
-                    elif om.n - cm.n == om.size - im.size:
-                        dm = om - edge.intersection
-                        dm.n = om.n - cm.n
-                    elif cm.n - om.n == cm.size - im.size:
-                        dm = cm - edge.intersection
-                        dm.n = cm.n - om.n
-                    else: continue #otherwise continue on
-
-                    # Create new node, and attempt to add later
-                    dm_node = MSM_Node(dm)
-                    to_add.append(dm_node)
-            """
+                    for edge, other in edges:
+                        to_add.append(MSM_Node(MSM(other.bitmap() - inter_bitmap, n=0, pos=other.pos())))
     added = False
-    if verbose >= 3 and len(to_add) > 0: print(f"to_add: {to_add}")
+    if verbose >= 4 and len(to_add) > 0: print(f"to_add: {to_add}")
     for new_node in to_add:
         # Skip node if bitmap already in node TODO make more efficient
         assert new_node.size() >= new_node.n() >= 0, to_add
@@ -405,22 +281,22 @@ def __expand_msm_graph_once(MSMs, verbose=0):
             for other in MSMs[dcoord]:
                 new_node.create_edge(other)
         MSMs[new_node.pos()].append(new_node)
-    if verbose >= 3 and len(to_add) > 0: print(f"added? {added}")
+    if verbose >= 4 and len(to_add) > 0: print(f"added? {added}")
     return added
                     
 def __find_all_independent_neighbor_edges(node: MSM_Node):
-    def __find_all_independent_neighbor_edges_helper(bitmap, edges):
+    def __find_all_independent_neighbor_edges_helper(bitmap:Bitmap, edges):
         if not edges: return []
         ind_neighbors = []
         while edges:
             edge, other = edges.pop()
             union_bitmap = bitmap + edge.intersection.bitmap
-            if not torch.any(union_bitmap == 2):
+            if not (bitmap * edge.intersection.bitmap).any():
                 n = int(other.n())
                 ind_neighbors.append((union_bitmap, n, [(edge, other)]))
                 ind_others = __find_all_independent_neighbor_edges_helper(union_bitmap, edges.copy())
                 for i, (o_bitmap, o_n, others) in enumerate(ind_others):
                     ind_neighbors.append((o_bitmap, n+o_n ,others+[(edge, other)]))
         return ind_neighbors
-                
-    return __find_all_independent_neighbor_edges_helper(torch.zeros(node.bitmap().shape), list(node.get_edges()))
+    rows, cols = node.bitmap().rows, node.bitmap().cols
+    return __find_all_independent_neighbor_edges_helper(Bitmap(rows, cols), list(node.get_edges()))

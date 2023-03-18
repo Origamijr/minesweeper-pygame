@@ -77,11 +77,11 @@ class Board_UI(pg.sprite.Group):
             self.first_move = False
             pg.time.set_timer(pg.USEREVENT, 1000)
 
-        if self.k_board[i,j].N >= 0:
+        if self.k_board[i,j].N != -1:
             # Check to see if chording is possible if a number is clicked
             to_clear = set()
             mines = 0
-            for ni, nj in self.t_board.get_neighbors(i,j):
+            for ni, nj in self.t_board.get_neighbor_inds(i,j):
                 self.cells[ni][nj].unhold()
                 if self.k_board[ni,nj].M == 1: mines += 1
                 else: to_clear = to_clear.union(self.t_board.get_opening(ni, nj))
@@ -100,7 +100,7 @@ class Board_UI(pg.sprite.Group):
             self.k_board.set_clear(x, y, self.t_board[x,y].N)
 
         # Check for win (the knowledge board has cleared all cells needed to be cleared)
-        win = torch.all(self.t_board.C == self.k_board.C)
+        win = self.t_board.C == self.k_board.C
 
         # Handle game over
         if win or lose:
@@ -129,16 +129,16 @@ class Board_UI(pg.sprite.Group):
         if self.active_coords:
             i, j = self.active_coords
             self.cells[i][j].unhold()
-            if self.k_board[i,j].N >= 0:
-                for ni, nj in self.t_board.get_neighbors(i, j):
+            if self.k_board[i,j].N != -1:
+                for ni, nj in self.t_board.get_neighbor_inds(i, j):
                     self.cells[ni][nj].unhold()
 
         # Hold the new cells
         if cell_coords:
             i, j = cell_coords
             self.cells[i][j].hold()
-            if self.k_board[i,j].N >= 0:
-                for ni, nj in self.t_board.get_neighbors(i, j):
+            if self.k_board[i,j].N != -1:
+                for ni, nj in self.t_board.get_neighbor_inds(i, j):
                     self.cells[ni][nj].hold()
 
         self.active_coords = cell_coords
@@ -157,7 +157,7 @@ class Board_UI(pg.sprite.Group):
                 self.active_coords = cell_coords
                 self.cells[i][j].hold()
                 if self.k_board[i,j].N >= 0:
-                    for ni, nj in self.t_board.get_neighbors(i, j):
+                    for ni, nj in self.t_board.get_neighbor_inds(i, j):
                         self.cells[ni][nj].hold()
             case 3:
                 # Mark on click if right click
