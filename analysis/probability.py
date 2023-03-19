@@ -1,6 +1,5 @@
 from analysis.msm_builder import get_msm_graph, CKEY
 from analysis.msm_analysis import find_num_solutions, seperate_connected_msm_components, try_step_msm
-from analysis.utils import flatten_msm_dict, get_one_ind
 from core.board import Board
 from core.bitmap import Bitmap
 import torch
@@ -17,7 +16,6 @@ def calculate_probabilities(B: Board, verbose=0):
 
     # Seperate into connected components for speed (since counts of connected components are independent)
     components = seperate_connected_msm_components(msm)
-
     counts = []
     c_size = 0
     bitmaps = []
@@ -25,16 +23,16 @@ def calculate_probabilities(B: Board, verbose=0):
     # Find the counts for each connected component
     for component in components:
         bitmap = Bitmap(B.rows, B.cols)
-        for node in flatten_msm_dict(component):
+        for node in component.flatten():
             bitmap += node.bitmap()
         bitmaps.append(bitmap)
-        if CKEY in component: 
+        if CKEY in component and len(component[CKEY]) > 0: 
             # If complement msm, ignore count (since don't know number of mines yet)
             c_size = int(component[CKEY][0].size())
             counts.append(None)
         else:
             counts.append(find_num_solutions(component, verbose=verbose))
-            if verbose >= 3: print(f'number of solutions for component {flatten_msm_dict(component)}: {counts[-1].items()}')
+            if verbose >= 3: print(f'number of solutions for component {component.flatten()}: {counts[-1].items()}')
 
             # merge counts into a larger pool for computing total number of continuations
             total_counts = __merge_disjoint_counts(total_counts, counts[-1])
@@ -63,7 +61,7 @@ def calculate_probabilities(B: Board, verbose=0):
         coords = bitmap.nonzero()
         for coord in coords:
             #Skip complement set
-            if CKEY in component:
+            if CKEY in component and len(component[CKEY]) > 0:
                 probabilities[coord] = c_prob
                 continue
             
@@ -85,14 +83,14 @@ def calculate_probabilities(B: Board, verbose=0):
             # Find the number of solutions with the mine given the total mine count
             possibilities = 0
             for n, count in cond_counts.items():
-                if num_mines - 1 < n: continue
+                if num_mines < n: continue
                 possibilities += count * max(1, comb(c_size, num_mines - n))
             if verbose >= 3: print(f'possibilities if mine at {coord}: {possibilities}')
             # Divide to get the probability
             probabilities[coord] = possibilities / total_possibilities
 
     # If cell was marked to be flagged, its probability is 1
-    for coord in to_flag:
+    for coord in B.get_mines():
         probabilities[coord] = 1
     
     assert abs(torch.sum(probabilities)-B.n) < 1e-3, f'Error in probability calculation {torch.sum(probabilities)-B.n}\n{probabilities}'

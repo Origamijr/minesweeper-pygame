@@ -1,6 +1,10 @@
 from core.bitmap import Bitmap
-from analysis.utils import get_one_ind
 from collections import ChainMap
+from copy import deepcopy
+
+"""
+Messy file, but hopfully all the methods are short enough that it isn't too confusing
+"""
 
 class MSM:
     """
@@ -40,32 +44,37 @@ class MSM_Node:
         return hash(self.msm)
     def __repr__(self):
         return repr(self.msm)
-    def bitmap(self): return hash(self.msm)
+    def bitmap(self): return self.msm.bitmap
     def n(self): return self.msm.n
     def size(self): return self.msm.size
     def pos(self): return self.msm.pos
     def get_edges(self):
-        return [(edge, other) for edge, other in ChainMap(*[d for d in self.edges.values() if len(d) > 0]).items()]
+        if self.edge_list is None:
+            self.edge_list = [(edge, other) for edge, other in ChainMap(*[d for d in self.edges.values() if len(d) > 0]).items()]
+        return self.edge_list
     def create_edge(self, other):
         if other.pos() in self.edges and self.pos() in other.edges:
             edge = MSM_Edge(self, other)
             if edge.intersection.bitmap.sum() == 0: return # connect if intersect
             self.edges[other.pos()][edge] = other
             other.edges[self.pos()][edge] = self
-        self.edge_list = None
+            self.edge_list = None
+            other.edge_list = None
     def remove_edge(self, edge_info):
+        self.edge_list = None
         edge, other = edge_info
         if edge not in self.edges[other.pos()]: return 
         self.edges[other.pos()].pop(edge) # Only disconnects one way
-        self.edge_list = None
     def disconnect(self):
         # Remove self from edge list of neighbors
+        self.edge_list = None
         for edge_coord in self.edges:
             for edge, other in self.edges[edge_coord].items():
                 other.remove_edge((edge, self))
-        self.edge_list = None
+                other.edge_list = None
     def update_edges(self):
         # Update intersections and prune edges no longer intersecting
+        self.edge_list = None
         for edge_coord in self.edges:
             to_remove = []
             for edge, other in self.edges[edge_coord].items():
@@ -73,7 +82,7 @@ class MSM_Node:
             for edge, other in to_remove: 
                 self.edges[edge_coord].pop(edge)
                 other.remove_edge((edge, self))
-        self.edge_list = None
+                other.edge_list = None
 
 
 class MSM_Edge:
@@ -97,28 +106,45 @@ class MSM_Edge:
 class MSM_Graph:
     def __init__(self):
         self.MSMs = dict()
+        self.__flattened = None
+    def clone(self):
+        return deepcopy(self)
+    def __repr__(self):
+        return repr(self.flatten())
     def __contains__(self, item):
         if isinstance(item, tuple): return item in self.MSMs
         if not isinstance(item, MSM_Node): return False
         for dcoord in item.edges.keys():
             if dcoord not in self.MSMs: continue
             if item in self.MSMs[dcoord]: return True
-        return item in self.MSMs[item.pos()]
-    def add_node(self, node:MSM_Node):
-        if node in self.MSMs: return
+        return item.pos() in self.MSMs and item in self.MSMs[item.pos()]
+    def __iter__(self):
+        return (node for node in self.flatten())
+    def __len__(self):
+        return len(self.flatten())
+    def __getitem__(self, key):
+        return self.MSMs[key]
+    def add_node(self, node:MSM_Node, connect_edges=True):
+        # Adds node and connects edges that intersect. Return True if success
+        self.__flattened = None
+        if node in self: return False
+        if connect_edges:
+            for dcoord in node.edges.keys():
+                if dcoord not in self.MSMs: continue
+                for other in self.MSMs[dcoord]:
+                    node.create_edge(other)
         coord = node.pos()
-        self.MSMs[coord] = []
-        for dcoord in node.edges.keys():
-            if dcoord not in self.MSMs: continue
-            for other in self.MSMs[dcoord]:
-                node.create_edge(other)
         if coord not in self.MSMs: self.MSMs[coord] = []
         self.MSMs[coord].append(node)
+        return True
     def remove_node(self, node:MSM_Node):
+        self.__flattened = None
         self.MSMs[node.pos()].remove(node)
         node.disconnect()
     def flatten(self):
-        MSMs = []
-        for coord in self.MSMs:
-            MSMs += self.MSMs[coord]
-        return MSMs
+        # Returns a flattened version of the underlying dictionary
+        if self.__flattened is None:
+            self.__flattened = []
+            for coord in self.MSMs:
+                self.__flattened += self.MSMs[coord]
+        return self.__flattened

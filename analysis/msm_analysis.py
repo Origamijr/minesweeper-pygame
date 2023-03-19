@@ -1,27 +1,25 @@
 import torch
 from core.bitmap import Bitmap
-from analysis.utils import flatten_msm_dict
-from analysis.msm_builder import MSM, MSM_Node, second_order_msm_reduction
-import copy
+from analysis.msm_builder import MSM, MSM_Node, MSM_Graph, second_order_msm_reduction
 from math import comb
-import itertools
 
-def seperate_connected_msm_components(MSMs):
-    # This is just dfs
-    flat_graph = flatten_msm_dict(MSMs)
-    assert len(flat_graph) > 0
-    if len(flat_graph) == 1: return [MSMs]
+def seperate_connected_msm_components(MSMG:MSM_Graph) -> list[MSM_Graph]:
+    # This is just dfs, but can maybe consider doing union forest instead if performance is an issue
+    assert len(MSMG) > 0
+    if len(MSMG) == 1: return [MSMG]
     components = []
     visited = []
-    while len(visited) != len(flat_graph):
+    while len(visited) != len(MSMG):
         start = None
-        for start in flat_graph: 
+        # Find next unvisited node
+        for start in MSMG:
             if start not in visited: break
         stack = [start]
         visited.append(start)
-        component = dict()
-        component[start.pos()] = []
-        component[start.pos()].append(start)
+
+        # Build component from neighbors of start node
+        component = MSM_Graph()
+        component.add_node(start, connect_edges=False)
         while stack:
             curr_node = stack.pop()
             neighbors = [other for _, other in curr_node.get_edges() if other not in visited]
@@ -29,19 +27,20 @@ def seperate_connected_msm_components(MSMs):
                 visited += neighbors
                 stack += neighbors
                 for n in neighbors:
-                    if n.pos() not in component: component[n.pos()] = []
-                    component[n.pos()].append(n)
+                    component.add_node(n, connect_edges=False)
         components.append(component)
+
+    # Note: The components have the same references as the original graph
     return components
 
-def try_step_msm(MSMs, clear_bitmap=None, mine_bitmap=None, verbose=0):
+def try_step_msm(MSMG:MSM_Graph, clear_bitmap:Bitmap=None, mine_bitmap:Bitmap=None, verbose=0):
     """
     Logic reduce a MSM graph with a set of spaces to assume clear and/or mine
     """
 
     # Assert nonoverlapping bitmaps
-    assert (clear_bitmap is None or mine_bitmap is None) or torch.sum(mine_bitmap * clear_bitmap) == 0
-    MSMs = copy.deepcopy(MSMs) # TODO find a better way to copy
+    assert (clear_bitmap is None or mine_bitmap is None) or not (mine_bitmap * clear_bitmap).any()
+    MSMG = MSMG.clone() # get copy as to not modify original graph
 
     # Create MSMs based on the bitmaps and insert them into the graph
     if clear_bitmap is not None:
@@ -50,15 +49,8 @@ def try_step_msm(MSMs, clear_bitmap=None, mine_bitmap=None, verbose=0):
         pos = clear_bitmap.nonzero()[0]
         num_clear = clear_bitmap.sum()
         # Create a Node for the cleared positions with 0 mines
-        clear_node = MSM_Node(MSM(clear_bitmap, n=0, pos=pos, size=num_clear))
-        # Insert node into graph
-        for dcoord in clear_node.edges.keys():
-            if dcoord not in MSMs: continue
-            for other in MSMs[dcoord]:
-                clear_node.create_edge(other)
-        if pos not in MSMs: MSMs[pos] = []
-        MSMs[pos].append(clear_node)
-
+        MSMG.add_node(MSM_Node(MSM(clear_bitmap, n=0, pos=pos, size=num_clear)))
+        
     # Identical to above
     if mine_bitmap is not None:
         mine_bitmap = mine_bitmap.clone()
@@ -66,26 +58,19 @@ def try_step_msm(MSMs, clear_bitmap=None, mine_bitmap=None, verbose=0):
         pos = mine_bitmap.nonzero()[0]
         num_mine = mine_bitmap.sum()
         # Create a Node for the cleared positions with all mines
-        mine_node = MSM_Node(MSM(mine_bitmap, n=num_mine, pos=pos, size=num_mine))
-        # Insert node into graph
-        for dcoord in mine_node.edges.keys():
-            if dcoord not in MSMs: continue
-            for other in MSMs[dcoord]:
-                mine_node.create_edge(other)
-        if pos not in MSMs: MSMs[pos] = []
-        MSMs[pos].append(mine_node)
+        MSMG.add_node(MSM_Node(MSM(mine_bitmap, n=num_mine, pos=pos, size=num_mine)))
 
     # Solve the graph with the new node inserted
-    to_clear, to_flag = second_order_msm_reduction(MSMs, minecount_first=True, verbose=verbose)
+    to_clear, to_flag = second_order_msm_reduction(MSMG, minecount_first=True, verbose=verbose)
 
-    return MSMs, to_clear, to_flag
+    return MSMG, to_clear, to_flag
 
-def find_num_solutions(MSMs, min_n=None, max_n=None, seed=None, verbose=0):
+def find_num_solutions(MSMG:MSM_Graph, min_n=None, max_n=None, seed=None, verbose=0):
     """
     Find solutions using branch and bound. Faster if connected component.
     """
     counts = dict()
-    flat_graph = flatten_msm_dict(MSMs)
+    flat_graph = MSMG.flatten()
 
     if len(flat_graph) == 0:
         counts[0] = 1
@@ -115,18 +100,18 @@ def find_num_solutions(MSMs, min_n=None, max_n=None, seed=None, verbose=0):
 
     # Count the cases if a mine is present at the selected coordinate
     if verbose >= 3: print(f'Try mine at {coord}')
-    MSMs_mine, to_clear_m, to_flag_m = try_step_msm(MSMs, mine_bitmap=bitmap, verbose=verbose)
+    MSMG_mine, to_clear_m, to_flag_m = try_step_msm(MSMG, mine_bitmap=bitmap, verbose=verbose)
     num_mines = len(to_flag_m)
-    num_with_mine = find_num_solutions(MSMs_mine, min_n=min_n, max_n=max_n, seed=seed, verbose=verbose)
+    num_with_mine = find_num_solutions(MSMG_mine, min_n=min_n, max_n=max_n, seed=seed, verbose=verbose)
     for n, count in num_with_mine.items():
         if n+num_mines not in counts: counts[n+num_mines] = 0
         counts[n+num_mines] += count
     
     # Count the cases if a mine is not present at the selected coordinate
     if verbose >= 3: print(f'Try clear at {coord}')
-    MSMs_clear, to_clear_c, to_flag_c = try_step_msm(MSMs, clear_bitmap=bitmap, verbose=verbose)
+    MSMG_clear, to_clear_c, to_flag_c = try_step_msm(MSMG, clear_bitmap=bitmap, verbose=verbose)
     num_mines = len(to_flag_c)
-    num_wo_mine = find_num_solutions(MSMs_clear, min_n=min_n, max_n=max_n, seed=seed, verbose=verbose)
+    num_wo_mine = find_num_solutions(MSMG_clear, min_n=min_n, max_n=max_n, seed=seed, verbose=verbose)
     for n, count in num_wo_mine.items():
         if n+num_mines not in counts: counts[n+num_mines] = 0
         counts[n+num_mines] += count
