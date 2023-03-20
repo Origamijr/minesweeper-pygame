@@ -1,7 +1,10 @@
 import torch
 from core.bitmap import Bitmap
 from analysis.msm_builder import MSM, MSM_Node, MSM_Graph, second_order_msm_reduction
+from analysis.solution_set import SolutionSet
 from math import comb
+from itertools import combinations
+from functools import reduce
 
 def seperate_connected_msm_components(MSMG:MSM_Graph) -> list[MSM_Graph]:
     # This is just dfs, but can maybe consider doing union forest instead if performance is an issue
@@ -95,7 +98,7 @@ def find_num_solutions(MSMG:MSM_Graph, min_n=None, max_n=None, seed=None, verbos
     # Otherwise, do branch and bound
     # Select arbitrary coordinate covered by one MSM
     coord = select_branch_coord(flat_graph, seed)
-    bitmap = Bitmap(flat_graph[0].bitmap().rows, flat_graph[0].bitmap().cols)
+    bitmap = Bitmap(*flat_graph[0].bitmap().shape)
     bitmap[coord] = 1
 
     # Count the cases if a mine is present at the selected coordinate
@@ -118,12 +121,47 @@ def find_num_solutions(MSMG:MSM_Graph, min_n=None, max_n=None, seed=None, verbos
 
     return counts
     
-def find_solutions(MSMs, min_n=None, max_n=None, seed=None, verbose=0):
+def find_solutions(MSMG:MSM_Graph, seed=None, verbose=0) -> SolutionSet:
     """
     Find solutions using branch and bound. Faster if connected component.
+    Requires all nodes in MSMG to have the number of mines defined
     """
-    # TODO
-    pass
+    flat_graph = MSMG.flatten()
+
+    if len(flat_graph) == 0:
+        return SolutionSet() # empty solution set
+    
+    # If one MSM, the solutions are just the combinations
+    if len(flat_graph) == 1:
+        bitmap = flat_graph[0].bitmap()
+        n = flat_graph[0].n()
+        solns = SolutionSet(bitmap)
+        assert flat_graph[0].n() is not None
+        for combo in combinations(bitmap.decimate(), n):
+            solns.add_solution(reduce(lambda b1, b2: b1+b2, combo))
+        return solns
+    
+    # TODO, I think there's a way to use connected components before branching and bounding.
+
+    # Otherwise, do branch and bound
+    # Select arbitrary coordinate covered by one MSM
+    coord = select_branch_coord(flat_graph, seed)
+    bitmap = Bitmap(*flat_graph[0].bitmap().shape)
+    bitmap[coord] = 1
+
+    # Count the cases if a mine is present at the selected coordinate
+    if verbose >= 3: print(f'Try mine at {coord}')
+    MSMG_mine, _, to_flag_m = try_step_msm(MSMG, mine_bitmap=bitmap, verbose=verbose)
+    soln_with_mine = find_solutions(MSMG_mine, seed=seed, verbose=verbose)
+    soln_with_mine.expand_solutions(MSMG_mine.bitmap(), to_flag_m)
+    
+    # Count the cases if a mine is not present at the selected coordinate
+    if verbose >= 3: print(f'Try clear at {coord}')
+    MSMG_clear, _, to_flag_c = try_step_msm(MSMG, clear_bitmap=bitmap, verbose=verbose)
+    soln_wo_mine = find_solutions(MSMG_clear, seed=seed, verbose=verbose)
+    soln_wo_mine.expand_solutions(MSMG_clear.bitmap(), to_flag_c)
+
+    return SolutionSet.merge_solution_sets(soln_with_mine, soln_wo_mine)
 
 def select_branch_coord(flat_graph, seed=None):
     if seed: torch.manual_seed(seed)
@@ -131,7 +169,3 @@ def select_branch_coord(flat_graph, seed=None):
     random_candidates = random_bitmap.nonzero()
     coord = random_candidates[0 if True else torch.randint(len(random_candidates),(1,))]
     return coord
-
-def quine_mcclusky_subset():
-    # Would finding a subset cover with minimal overlap help?
-    pass

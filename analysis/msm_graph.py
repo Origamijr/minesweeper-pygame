@@ -1,6 +1,7 @@
 from core.bitmap import Bitmap
 from collections import ChainMap
 from copy import deepcopy
+from functools import reduce
 
 """
 Messy file, but hopfully all the methods are short enough that it isn't too confusing
@@ -106,7 +107,8 @@ class MSM_Edge:
 class MSM_Graph:
     def __init__(self):
         self.MSMs = dict()
-        self.__flattened = None
+        self._bitmap = None
+        self._flattened = None
     def clone(self):
         return deepcopy(self)
     def __repr__(self):
@@ -126,7 +128,8 @@ class MSM_Graph:
         return self.MSMs[key]
     def add_node(self, node:MSM_Node, connect_edges=True):
         # Adds node and connects edges that intersect. Return True if success
-        self.__flattened = None
+        self._flattened = None
+        self._bitmap = None
         if node in self: return False
         if connect_edges:
             for dcoord in node.edges.keys():
@@ -138,13 +141,19 @@ class MSM_Graph:
         self.MSMs[coord].append(node)
         return True
     def remove_node(self, node:MSM_Node):
-        self.__flattened = None
+        self._flattened = None
+        self._bitmap = None
         self.MSMs[node.pos()].remove(node)
         node.disconnect()
-    def flatten(self):
+    def flatten(self) -> list[MSM_Node]:
         # Returns a flattened version of the underlying dictionary
-        if self.__flattened is None:
-            self.__flattened = []
+        if self._flattened is None:
+            self._flattened = []
             for coord in self.MSMs:
-                self.__flattened += self.MSMs[coord]
-        return self.__flattened
+                self._flattened += self.MSMs[coord]
+        return self._flattened
+    def bitmap(self):
+        # Returns a flattened version of the underlying dictionary
+        if self._bitmap is None:
+            self.bitmap = reduce(lambda n1, n2: n1.bitmap()+n2.bitmap(), self.flatten)
+        return self._bitmap

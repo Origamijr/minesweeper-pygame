@@ -15,6 +15,7 @@ class Bitmap:
     # Name is a misnomer atm since it can contain values -128 to 127. May eventually create true bitmap class
     def __init__(self, rows, cols, bitmap:torch.Tensor=None):
         self.rows, self.cols = rows, cols
+        self.shape = (rows, cols)
         self.bitmap = bitmap.clone().to(torch.int8) if bitmap is not None else torch.zeros((1,1,rows,cols), dtype=torch.int8)
 
     @staticmethod
@@ -24,6 +25,12 @@ class Bitmap:
     @staticmethod
     def neg_ones(rows, cols):
         return Bitmap(rows, cols, bitmap=-torch.ones((1,1,rows,cols), dtype=torch.int8))
+
+    @staticmethod
+    def coords(rows, cols, coords):
+        bitmap = torch.zeros((1,1,rows,cols), dtype=torch.int8)
+        for coord in coords: bitmap[coord] = 1
+        return Bitmap(rows, cols, bitmap=bitmap)
 
     def clone(self):
         return Bitmap(self.rows, self.cols, bitmap=self.bitmap)
@@ -95,3 +102,11 @@ class Bitmap:
     
     def get_mask(self, value:int):
         return Bitmap(self.rows, self.cols, bitmap=(self.bitmap == value))
+    
+    def decimate(self):
+        # Returns list of bitmaps with a single nonzero element that sums to the bitmap
+        coords = self.nonzero()
+        parts = [Bitmap(*self.shape) for _ in range(len(coords))]
+        for i, coord in enumerate(coords):
+            parts[i][coord] = self[coord]
+        return parts
