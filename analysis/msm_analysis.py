@@ -141,31 +141,55 @@ def find_solutions(MSMG:MSM_Graph, seed=None, verbose=0) -> SolutionSet:
             solns.add_solution(reduce(lambda b1, b2: b1+b2, combo))
         return solns
     
-    # TODO, I think there's a way to use connected components before branching and bounding.
-
     # Otherwise, do branch and bound
-    # Select arbitrary coordinate covered by one MSM
-    coord = select_branch_coord(flat_graph, seed)
-    bitmap = Bitmap(*flat_graph[0].bitmap().shape)
-    bitmap[coord] = 1
-
-    # Count the cases if a mine is present at the selected coordinate
-    if verbose >= 3: print(f'Try mine at {coord}')
-    MSMG_mine, _, to_flag_m = try_step_msm(MSMG, mine_bitmap=bitmap, verbose=verbose)
-    soln_with_mine = find_solutions(MSMG_mine, seed=seed, verbose=verbose)
-    soln_with_mine.expand_solutions(MSMG_mine.bitmap(), to_flag_m)
     
-    # Count the cases if a mine is not present at the selected coordinate
-    if verbose >= 3: print(f'Try clear at {coord}')
-    MSMG_clear, _, to_flag_c = try_step_msm(MSMG, clear_bitmap=bitmap, verbose=verbose)
-    soln_wo_mine = find_solutions(MSMG_clear, seed=seed, verbose=verbose)
-    soln_wo_mine.expand_solutions(MSMG_clear.bitmap(), to_flag_c)
+    # TODO, I think there's a way to use connected components before branching and bounding.
+    components = seperate_connected_msm_components(MSMG)
+    solutions = SolutionSet()
+    for component in components:
+        # Select arbitrary coordinate covered by one MSM
+        flat_graph = component.flatten()
+        coord = select_branch_coord(flat_graph, seed)
+        bitmap = Bitmap(*flat_graph[0].bitmap().shape)
+        bitmap[coord] = 1
 
-    return SolutionSet.merge_solution_sets(soln_with_mine, soln_wo_mine)
+        # Count the cases if a mine is present at the selected coordinate
+        if verbose >= 3: print(f'Try mine at {coord}')
+        MSMG_mine, _, to_flag_m = try_step_msm(component, mine_bitmap=bitmap, verbose=verbose)
+        soln_with_mine = find_solutions(MSMG_mine, seed=seed, verbose=verbose)
+        to_flag_m.add(coord)
+        soln_with_mine.expand_solutions(component.bitmap(), to_flag_m)
+        if verbose >= 3: print(f'Solutions with mine at {coord}:\n{soln_with_mine}')
+        
+        # Count the cases if a mine is not present at the selected coordinate
+        if verbose >= 3: print(f'Try clear at {coord}')
+        MSMG_clear, _, to_flag_c = try_step_msm(component, clear_bitmap=bitmap, verbose=verbose)
+        soln_wo_mine = find_solutions(MSMG_clear, seed=seed, verbose=verbose)
+        soln_wo_mine.expand_solutions(component.bitmap(), to_flag_c)
+        if verbose >= 3: print(f'Solutions without mine at {coord}:\n{soln_wo_mine}')
 
-def select_branch_coord(flat_graph, seed=None):
+        component_solutions = SolutionSet.merge_solution_sets(soln_with_mine, soln_wo_mine)
+        if verbose >= 3: print(f'Solutions for component {component}:\n{component_solutions}')
+
+        solutions = SolutionSet.combine_solution_sets(solutions, component_solutions)
+
+    return solutions
+
+def select_branch_coord(flat_graph, seed=None, mode='mid'):
     if seed: torch.manual_seed(seed)
-    random_bitmap = flat_graph[0 if True else torch.randint(len(flat_graph),(1,)).item()].bitmap()
-    random_candidates = random_bitmap.nonzero()
-    coord = random_candidates[0 if True else torch.randint(len(random_candidates),(1,))]
-    return coord
+    match mode:
+        case 'first':
+            random_bitmap = flat_graph[0].bitmap()
+            random_candidates = random_bitmap.nonzero()
+            coord = random_candidates[0]
+            return coord
+        case 'mid':
+            random_bitmap = flat_graph[len(flat_graph)//2].bitmap()
+            random_candidates = random_bitmap.nonzero()
+            coord = random_candidates[len(random_candidates)//2]
+            return coord
+        case 'random':
+            random_bitmap = flat_graph[torch.randint(len(flat_graph),(1,)).item()].bitmap()
+            random_candidates = random_bitmap.nonzero()
+            coord = random_candidates[torch.randint(len(random_candidates),(1,))]
+            return coord

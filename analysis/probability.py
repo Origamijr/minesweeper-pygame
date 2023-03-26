@@ -1,5 +1,6 @@
 from analysis.msm_builder import get_msm_graph, CKEY
-from analysis.msm_analysis import find_num_solutions, seperate_connected_msm_components, try_step_msm
+from analysis.msm_analysis import find_solutions, seperate_connected_msm_components, try_step_msm
+from analysis.solution_set import SolutionSet
 from core.board import Board
 from core.bitmap import Bitmap
 import torch
@@ -11,39 +12,40 @@ def calculate_probabilities(B: Board, verbose=0):
     Takes a board and computes probability for each square using exhaustive count
     """
     num_mines = B.n
-    B, msm, to_clear, to_flag = get_msm_graph(B, verbose=verbose)
+    B, msm, _, _ = get_msm_graph(B, verbose=verbose)
     num_mines -= B.M.sum()
 
     # Seperate into connected components for speed (since counts of connected components are independent)
     components = seperate_connected_msm_components(msm)
+    solutions:list[SolutionSet] = []
+    bitmaps:list[Bitmap] = []
     counts = []
     c_size = 0
-    bitmaps = []
     total_counts = dict()
     # Find the counts for each connected component
     for component in components:
-        bitmap = Bitmap(B.rows, B.cols)
-        for node in component.flatten():
-            bitmap += node.bitmap()
-        bitmaps.append(bitmap)
+        bitmaps.append(component.bitmap())
         if CKEY in component and len(component[CKEY]) > 0: 
             # If complement msm, ignore count (since don't know number of mines yet)
             c_size = int(component[CKEY][0].size())
+            solutions.append(None)
             counts.append(None)
         else:
-            counts.append(find_num_solutions(component, verbose=verbose))
-            if verbose >= 3: print(f'number of solutions for component {component.flatten()}: {counts[-1].items()}')
+            solutions.append(find_solutions(component, verbose=verbose))
+            counts.append(solutions[-1].get_solution_counts())
+            if verbose >= 3: print(f'number of solutions for component {component.flatten()}: {counts}')
 
             # merge counts into a larger pool for computing total number of continuations
             total_counts = __merge_disjoint_counts(total_counts, counts[-1])
 
     if verbose >= 3: print(f'number of total solutions: {total_counts}')
-    if verbose >= 3: print(f'number of mines: {num_mines}')
+    if verbose >= 3: print(f'number of mines to place: {num_mines}')
     total_possibilities = 0
     c_possiblities = 0
     # Iterate over counts to find the total number of valid continuations
     for n, count in total_counts.items():
         if c_size == 0:
+            # If there are no complement items, just add the count
             total_possibilities += count
             continue
         if n > num_mines: continue # Skip if count requires more mines than what's available
@@ -52,28 +54,25 @@ def calculate_probabilities(B: Board, verbose=0):
         if num_mines - 1 < n or c_size == 0: continue
         c_possiblities += count * comb(c_size - 1, num_mines - n - 1)
     if verbose >= 3: print(f'total possibilities: {total_possibilities}')
-    c_prob = c_possiblities / total_possibilities
+    c_prob = c_possiblities / total_possibilities # probability of mine in complement region
 
     # Compute probability for each unknown square
     probabilities = torch.zeros(B.rows, B.cols)
-    for i, (bitmap, component) in enumerate(zip(bitmaps, components)):
+    for i, (bitmap, component, solution) in enumerate(zip(bitmaps, components, solutions)):
         # Iterate over the 1 bits in the merged MSM (i.e all the possible locations for the count group)
         coords = bitmap.nonzero()
         for coord in coords:
             #Skip complement set
-            if CKEY in component and len(component[CKEY]) > 0:
+            if solution is None:
                 probabilities[coord] = c_prob
                 continue
             
             # Insert a mine at square and reduce board
             if verbose >= 3: print(f'computing probability at {coord}')
-            mine_bitmap = Bitmap(B.rows, B.cols)
-            mine_bitmap[coord] = 1
-            reduced_component, _, cond_to_flag = try_step_msm(component, mine_bitmap=mine_bitmap, verbose=verbose)
             # Find number of solutions with mine present
-            cond_counts = find_num_solutions(reduced_component, verbose=verbose)
-            cond_counts = __merge_disjoint_counts(cond_counts, {len(cond_to_flag):1})
-            if verbose >= 3: print(f'if mine at {coord}, mine at {cond_to_flag} yielding component counts: {cond_counts}')
+            cond_counts = solution.get_solution_counts_with_mines([coord])
+            #cond_counts = __merge_disjoint_counts(cond_counts, {len(cond_to_flag):1})
+            if verbose >= 3: print(f'if mine at {coord}, component counts: {cond_counts}')
             # Merge counts of other regions
             for j, count in enumerate(counts):
                 if i == j or count is None: continue

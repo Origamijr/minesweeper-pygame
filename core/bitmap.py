@@ -29,7 +29,7 @@ class Bitmap:
     @staticmethod
     def coords(rows, cols, coords):
         bitmap = torch.zeros((1,1,rows,cols), dtype=torch.int8)
-        for coord in coords: bitmap[coord] = 1
+        for coord in coords: bitmap[0,0,coord[0],coord[1]] = 1
         return Bitmap(rows, cols, bitmap=bitmap)
 
     def clone(self):
@@ -50,6 +50,9 @@ class Bitmap:
     
     def __gt__(self, other):
         return Bitmap(self.rows, self.cols, bitmap=(self.bitmap > other.bitmap))
+    
+    def __ge__(self, other):
+        return Bitmap(self.rows, self.cols, bitmap=(self.bitmap >= other.bitmap))
     
     def __repr__(self):
         return str(self.bitmap[0,0,...].numpy())

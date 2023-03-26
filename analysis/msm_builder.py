@@ -37,6 +37,7 @@ def get_msm_graph(B: Board, order=2, reduced_board=False, verbose=0):
     elif B.n == 0:
         to_clear = to_clear.union(set(c_bm.nonzero()))
         MSMG.remove_node(MSMG[CKEY][0])
+    if verbose >= 2: print(f'Size of MSM Graph: {len(MSMG)}')
     return B if reduced_board else B_orig, MSMG, to_clear, to_flag
     
 
@@ -172,21 +173,26 @@ def __expand_msm_graph_once(MSMG:MSM_Graph, verbose=0):
                 edge = edges[0][0]
                 om = edges[0][1].msm
                 if edge.intersection == om:
-                    if verbose >= 4: print('found subset')
                     dm = cm - edge.intersection
+                    if dm.size == 0: continue
                     dm.n = cm.n - om.n
                     to_add.append(MSM_Node(dm))
+                    if verbose >= 4: print('found subset')
                     continue # both subset and 1-2 rule add difference, so no need to check for 1-2
 
             # Verify 1-2 relationship (TODO is there a better way?)
             diff = cm.bitmap - inter_bitmap
             diff_size = diff.sum()
-            if diff_size > 0 and cm.n - inter_n == diff_size:
-                if verbose >= 4: print(f'found 1-2 rule')
-                dm = MSM(diff, n=cm.n-inter_n, size=diff_size, pos=cm.pos)
-                to_add.append(MSM_Node(dm))
+            if cm.n - inter_n == diff_size:
+                if diff_size > 0: 
+                    dm = MSM(diff, n=cm.n-inter_n, size=diff_size, pos=cm.pos)
+                    to_add.append(MSM_Node(dm))
+                    if verbose >= 4: print(f'found 1-2 rule 1')
                 for edge, other in edges:
-                    to_add.append(MSM_Node(MSM(other.bitmap() - inter_bitmap, n=0, pos=other.pos())))
+                    dm = other.bitmap() - inter_bitmap
+                    if dm.sum() == 0: continue
+                    to_add.append(MSM_Node(MSM(dm, n=0, pos=other.pos())))
+                    if verbose >= 4: print(f'found 1-2 rule 2')
     added = False
     if verbose >= 4 and len(to_add) > 0: print(f"to_add: {to_add}")
     for new_node in to_add:

@@ -1,7 +1,6 @@
 from core.bitmap import Bitmap
 from collections import ChainMap
 from copy import deepcopy
-from functools import reduce
 
 """
 Messy file, but hopfully all the methods are short enough that it isn't too confusing
@@ -155,5 +154,7 @@ class MSM_Graph:
     def bitmap(self):
         # Returns a flattened version of the underlying dictionary
         if self._bitmap is None:
-            self.bitmap = reduce(lambda n1, n2: n1.bitmap()+n2.bitmap(), self.flatten)
+            for node in self:
+                if self._bitmap is None: self._bitmap = node.bitmap()
+                else: self._bitmap += node.bitmap()
         return self._bitmap
