@@ -25,7 +25,7 @@ def play_logic(B_k: Board, B_t: Board, verbose=0):
 def guess_min_mine_probability(B_k: Board, verbose=0):
     p = calculate_probabilities(B_k, verbose=verbose)
     if verbose >= 2: print(p)
-    coords = get_one_ind(p != 0)
+    coords = B_k.unknown().nonzero()
     min_coord, min_val = coords[0], 1
     for coord in coords:
         if p[coord] < min_val:

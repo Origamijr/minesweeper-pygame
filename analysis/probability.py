@@ -42,13 +42,17 @@ def calculate_probabilities(B: Board, verbose=0):
     if verbose >= 3: print(f'number of mines to place: {num_mines}')
     total_possibilities = 0
     c_possiblities = 0
+    if len(total_counts) == 0:
+        total_possibilities = comb(c_size, num_mines)
+        c_possiblities = comb(c_size - 1, num_mines - 1)
     # Iterate over counts to find the total number of valid continuations
     for n, count in total_counts.items():
+        if n > num_mines: continue # Skip if count requires more mines than what's available
+        if n + c_size < num_mines: continue # Skip if not enough mines to solve
         if c_size == 0:
             # If there are no complement items, just add the count
             total_possibilities += count
             continue
-        if n > num_mines: continue # Skip if count requires more mines than what's available
         total_possibilities += count * comb(c_size, num_mines - n)
         # If there are mines remaining for the complement space, count the number of solutions for complement space
         if num_mines - 1 < n or c_size == 0: continue
@@ -83,6 +87,7 @@ def calculate_probabilities(B: Board, verbose=0):
             possibilities = 0
             for n, count in cond_counts.items():
                 if num_mines < n: continue
+                if n + c_size < num_mines: continue
                 possibilities += count * max(1, comb(c_size, num_mines - n))
             if verbose >= 3: print(f'possibilities if mine at {coord}: {possibilities}')
             # Divide to get the probability

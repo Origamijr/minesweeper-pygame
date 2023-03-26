@@ -155,21 +155,31 @@ def find_solutions(MSMG:MSM_Graph, seed=None, verbose=0) -> SolutionSet:
 
         # Count the cases if a mine is present at the selected coordinate
         if verbose >= 3: print(f'Try mine at {coord}')
-        MSMG_mine, _, to_flag_m = try_step_msm(component, mine_bitmap=bitmap, verbose=verbose)
-        soln_with_mine = find_solutions(MSMG_mine, seed=seed, verbose=verbose)
-        to_flag_m.add(coord)
-        soln_with_mine.expand_solutions(component.bitmap(), to_flag_m)
-        if verbose >= 3: print(f'Solutions with mine at {coord}:\n{soln_with_mine}')
+        try:
+            MSMG_mine, _, to_flag_m = try_step_msm(component, mine_bitmap=bitmap, verbose=verbose)
+            soln_with_mine = find_solutions(MSMG_mine, seed=seed, verbose=verbose)
+            to_flag_m.add(coord)
+            soln_with_mine.expand_solutions(component.bitmap(), to_flag_m)
+            if verbose >= 4: print(f'Solutions with mine at {coord}:\n{soln_with_mine}')
+        except AssertionError:
+            soln_with_mine = SolutionSet()
+            if verbose >= 2: print(f'Uncaught logic pattern found if mine at {coord}\a')
+            if verbose == 0: assert False
         
         # Count the cases if a mine is not present at the selected coordinate
-        if verbose >= 3: print(f'Try clear at {coord}')
-        MSMG_clear, _, to_flag_c = try_step_msm(component, clear_bitmap=bitmap, verbose=verbose)
-        soln_wo_mine = find_solutions(MSMG_clear, seed=seed, verbose=verbose)
-        soln_wo_mine.expand_solutions(component.bitmap(), to_flag_c)
-        if verbose >= 3: print(f'Solutions without mine at {coord}:\n{soln_wo_mine}')
+        try:
+            if verbose >= 3: print(f'Try clear at {coord}')
+            MSMG_clear, _, to_flag_c = try_step_msm(component, clear_bitmap=bitmap, verbose=verbose)
+            soln_wo_mine = find_solutions(MSMG_clear, seed=seed, verbose=verbose)
+            soln_wo_mine.expand_solutions(component.bitmap(), to_flag_c)
+            if verbose >= 4: print(f'Solutions without mine at {coord}:\n{soln_wo_mine}')
+        except AssertionError:
+            soln_wo_mine = SolutionSet()
+            if verbose >= 2: print(f'Uncaught logic pattern found if clear at {coord}\a')
+            if verbose == 0: assert False
 
         component_solutions = SolutionSet.merge_solution_sets(soln_with_mine, soln_wo_mine)
-        if verbose >= 3: print(f'Solutions for component {component}:\n{component_solutions}')
+        if verbose >= 4: print(f'Solutions for component {component}:\n{component_solutions}')
 
         solutions = SolutionSet.combine_solution_sets(solutions, component_solutions)
 

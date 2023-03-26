@@ -33,9 +33,15 @@ def get_msm_graph(B: Board, order=2, reduced_board=False, verbose=0):
         MSMG.remove_node(MSMG[CKEY][0])
     elif B.n == c_bm.sum() and len(MSMG) == 1:
         to_flag = to_flag.union(set(c_bm.nonzero()))
+        for coord in c_bm.nonzero(): 
+            B.set_mine(*coord)
+            B_orig.set_mine(*coord)
         MSMG.remove_node(MSMG[CKEY][0])
     elif B.n == 0:
         to_clear = to_clear.union(set(c_bm.nonzero()))
+        for coord in c_bm.nonzero(): 
+            B.set_clear(*coord)
+            B_orig.set_clear(*coord)
         MSMG.remove_node(MSMG[CKEY][0])
     if verbose >= 2: print(f'Size of MSM Graph: {len(MSMG)}')
     return B if reduced_board else B_orig, MSMG, to_clear, to_flag

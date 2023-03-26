@@ -84,7 +84,7 @@ class Board:
     
     def __repr__(self):
         assert self.is_valid(ignore_count=True), "Invalid Board"
-        s = '-' * (self.cols + 2) + f'{self.n}\n'
+        s = '-' * (self.cols + 2) + f'{self.n-self.M.sum()}/{self.n}\n'
         for x in range(self.rows):
             s += '|'
             for y in range(self.cols):
@@ -128,6 +128,9 @@ class Board:
             # compute N if complete information of area around cell
             if compute_n and (self.M + self.C) * N_inc == N_inc:
                 self.N[x,y] = (self.M * N_inc).sum()
+
+    def unknown(self) -> Bitmap:
+        return Bitmap.ones(self.rows, self.cols) - self.M - self.C
 
     def neighbor_mask(self, x, y):
         n_mask = Bitmap(self.rows, self.cols)
