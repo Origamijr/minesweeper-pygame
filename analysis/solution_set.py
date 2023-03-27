@@ -105,4 +105,5 @@ class SolutionSet:
         for soln in self.get_solutions_with_mines(mine_coords):
             if soln.n not in count_dict: count_dict[soln.n] = 0
             count_dict[soln.n] += 1
+        if len(count_dict) == 0: count_dict[0] = 0
         return count_dict

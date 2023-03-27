@@ -22,7 +22,10 @@ class MSM:
         self.bitmap, self.n, self.pos= bitmap, n, pos
         self.size = self.bitmap.sum() if size is None else size
     def __eq__(self, other):
-        return self.bitmap == other.bitmap
+        equal = self.bitmap == other.bitmap
+        if not equal: return False
+        assert self.n is None or other.n is None or self.n == other.n, 'Incompatible MSMS encountered ' + repr(self) + '\n' + repr(other)
+        return equal
     def __hash__(self):
         return hash(self.bitmap)
     def __sub__(self, other):

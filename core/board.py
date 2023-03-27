@@ -131,6 +131,21 @@ class Board:
 
     def unknown(self) -> Bitmap:
         return Bitmap.ones(self.rows, self.cols) - self.M - self.C
+    
+    def get_3bv(self):
+        counted = Bitmap(self.rows, self.cols)
+        bbbv = 0
+        for zero_coord in self.N.get_mask(0).nonzero():
+            # One click for each opening
+            if counted[zero_coord] == 1: continue
+            for visited_coord in self.get_opening(*zero_coord):
+                counted[visited_coord] = 1
+            bbbv += 1
+        for coord in self.C.nonzero():
+            # One click for everything else
+            if counted[zero_coord] == 1: continue
+            bbbv += 1
+        return bbbv
 
     def neighbor_mask(self, x, y):
         n_mask = Bitmap(self.rows, self.cols)
@@ -141,13 +156,15 @@ class Board:
         return -self.N.get_mask(-1)
             
     def set_mine(self, x, y, v=1):
-        if self.M[x,y] + self.C[x,y] >= 1: return
+        if self.M[x,y] + self.C[x,y] >= 1: return False
         self.M[x,y] = v
+        return True
 
     def set_clear(self, x, y, N=-1):
-        if self.M[x,y] + self.C[x,y] >= 1: return
+        if self.M[x,y] + self.C[x,y] >= 1: return False
         self.C[x,y] = 1
         self.N[x,y] = N
+        return True
 
     def get_neighbor_inds(self, x, y):
         deltas = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)]

@@ -128,8 +128,10 @@ def __minecount_reduce_msm_graph(MSMG: MSM_Graph, verbose=0):
                         # Remove the other node too and add the difference
                         to_remove.append(other)
                         diff = other.msm - edge.intersection # subtract intersection
-                        if diff.size == 0: continue
                         diff.n = other.n() # Should have same number of mines as before
+                        if diff.size == 0: # Nothing to do if empty, but ensure validity
+                            assert diff.n == 0
+                            continue
                         to_add.append(MSM_Node(diff))
                 to_remove.append(msm_node)
 
@@ -145,8 +147,10 @@ def __minecount_reduce_msm_graph(MSMG: MSM_Graph, verbose=0):
                         # Remove the other node too and add the difference
                         to_remove.append(other)
                         diff = other.msm - edge.intersection # subtract intersection
-                        if diff.size == 0: continue
                         diff.n = other.n() - edge.intersection.size # decrement number of mines
+                        if diff.size == 0: # Nothing to do if empty, but ensure validity
+                            assert diff.n == 0
+                            continue
                         to_add.append(MSM_Node(diff))
                 to_remove.append(msm_node)
         
@@ -180,8 +184,10 @@ def __expand_msm_graph_once(MSMG:MSM_Graph, verbose=0):
                 om = edges[0][1].msm
                 if edge.intersection == om:
                     dm = cm - edge.intersection
-                    if dm.size == 0: continue
                     dm.n = cm.n - om.n
+                    if dm.size == 0: 
+                        assert dm.n == 0
+                        continue
                     to_add.append(MSM_Node(dm))
                     if verbose >= 4: print('found subset')
                     continue # both subset and 1-2 rule add difference, so no need to check for 1-2

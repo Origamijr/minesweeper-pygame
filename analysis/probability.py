@@ -3,11 +3,12 @@ from analysis.msm_analysis import find_solutions, seperate_connected_msm_compone
 from analysis.solution_set import SolutionSet
 from core.board import Board
 from core.bitmap import Bitmap
+from solver.solver_stats import SolverStats
 import torch
 from math import comb
 import itertools
 
-def calculate_probabilities(B: Board, verbose=0):
+def calculate_probabilities(B: Board, stats:SolverStats=None, verbose=0):
     """
     Takes a board and computes probability for each square using exhaustive count
     """
@@ -31,9 +32,10 @@ def calculate_probabilities(B: Board, verbose=0):
             solutions.append(None)
             counts.append(None)
         else:
-            solutions.append(find_solutions(component, verbose=verbose))
+            solutions.append(find_solutions(component, stats=stats, verbose=verbose))
             counts.append(solutions[-1].get_solution_counts())
-            if verbose >= 3: print(f'number of solutions for component {component.flatten()}: {counts}')
+            if verbose == 3: print(f'number of solutions for component\n{component.bitmap()}: {counts[-1]}')
+            if verbose >= 4: print(f'solutions for component\n{component.bitmap()}: {solutions[-1]}')
 
             # merge counts into a larger pool for computing total number of continuations
             total_counts = __merge_disjoint_counts(total_counts, counts[-1])
@@ -75,7 +77,6 @@ def calculate_probabilities(B: Board, verbose=0):
             if verbose >= 3: print(f'computing probability at {coord}')
             # Find number of solutions with mine present
             cond_counts = solution.get_solution_counts_with_mines([coord])
-            #cond_counts = __merge_disjoint_counts(cond_counts, {len(cond_to_flag):1})
             if verbose >= 3: print(f'if mine at {coord}, component counts: {cond_counts}')
             # Merge counts of other regions
             for j, count in enumerate(counts):

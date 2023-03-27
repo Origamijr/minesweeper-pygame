@@ -2,6 +2,7 @@ import torch
 from core.bitmap import Bitmap
 from analysis.msm_builder import MSM, MSM_Node, MSM_Graph, second_order_msm_reduction
 from analysis.solution_set import SolutionSet
+from solver.solver_stats import SolverStats
 from math import comb
 from itertools import combinations
 from functools import reduce
@@ -121,7 +122,7 @@ def find_num_solutions(MSMG:MSM_Graph, min_n=None, max_n=None, seed=None, verbos
 
     return counts
     
-def find_solutions(MSMG:MSM_Graph, seed=None, verbose=0) -> SolutionSet:
+def find_solutions(MSMG:MSM_Graph, stats:SolverStats=None, seed=None, verbose=0) -> SolutionSet:
     """
     Find solutions using branch and bound. Faster if connected component.
     Requires all nodes in MSMG to have the number of mines defined
@@ -142,8 +143,6 @@ def find_solutions(MSMG:MSM_Graph, seed=None, verbose=0) -> SolutionSet:
         return solns
     
     # Otherwise, do branch and bound
-    
-    # TODO, I think there's a way to use connected components before branching and bounding.
     components = seperate_connected_msm_components(MSMG)
     solutions = SolutionSet()
     for component in components:
@@ -156,27 +155,27 @@ def find_solutions(MSMG:MSM_Graph, seed=None, verbose=0) -> SolutionSet:
         # Count the cases if a mine is present at the selected coordinate
         if verbose >= 3: print(f'Try mine at {coord}')
         try:
-            MSMG_mine, _, to_flag_m = try_step_msm(component, mine_bitmap=bitmap, verbose=verbose)
-            soln_with_mine = find_solutions(MSMG_mine, seed=seed, verbose=verbose)
+            MSMG_mine, to_clear_m, to_flag_m = try_step_msm(component, mine_bitmap=bitmap, verbose=verbose)
+            soln_with_mine = find_solutions(MSMG_mine, stats=stats, seed=seed, verbose=verbose)
             to_flag_m.add(coord)
             soln_with_mine.expand_solutions(component.bitmap(), to_flag_m)
             if verbose >= 4: print(f'Solutions with mine at {coord}:\n{soln_with_mine}')
         except AssertionError:
             soln_with_mine = SolutionSet()
+            if stats is not None: stats.add_uncaught_logic()
             if verbose >= 2: print(f'Uncaught logic pattern found if mine at {coord}\a')
-            if verbose == 0: assert False
         
         # Count the cases if a mine is not present at the selected coordinate
         try:
             if verbose >= 3: print(f'Try clear at {coord}')
-            MSMG_clear, _, to_flag_c = try_step_msm(component, clear_bitmap=bitmap, verbose=verbose)
-            soln_wo_mine = find_solutions(MSMG_clear, seed=seed, verbose=verbose)
+            MSMG_clear, to_clear_c, to_flag_c = try_step_msm(component, clear_bitmap=bitmap, verbose=verbose)
+            soln_wo_mine = find_solutions(MSMG_clear, stats=stats, seed=seed, verbose=verbose)
             soln_wo_mine.expand_solutions(component.bitmap(), to_flag_c)
             if verbose >= 4: print(f'Solutions without mine at {coord}:\n{soln_wo_mine}')
         except AssertionError:
             soln_wo_mine = SolutionSet()
+            if stats is not None: stats.add_uncaught_logic()
             if verbose >= 2: print(f'Uncaught logic pattern found if clear at {coord}\a')
-            if verbose == 0: assert False
 
         component_solutions = SolutionSet.merge_solution_sets(soln_with_mine, soln_wo_mine)
         if verbose >= 4: print(f'Solutions for component {component}:\n{component_solutions}')
