@@ -57,7 +57,7 @@ class Board:
     class BoardCell:
         # Wrapper class to return a single slice of the board
         def __init__(self, M, C, N):
-            self.M, self.C, self.N = M[0,0].clone(), C[0,0].clone(), N[0,0].clone()
+            self.M, self.C, self.N = M.clone(), C.clone(), N.clone()
         def __repr__(self):
             return f"[{self.M},\n{self.C},\n{self.N}]"
 

@@ -1,6 +1,5 @@
 import torch
 import torch.nn.functional as F
-import functools
 
 NEIGHBOR_KERNEL = torch.tensor([[[[1.,1.,1.],
                                   [1.,0.,1.],
@@ -9,6 +8,8 @@ NEIGHBOR_KERNEL = torch.tensor([[[[1.,1.,1.],
 NEIGHBOR_PLUS_KERNEL = torch.tensor([[[[1.,1.,1.],
                                        [1.,1.,1.],
                                        [1.,1.,1.]]]], dtype=torch.int8)
+
+# TODO Reorder methods in a way that makes sense
 
 class Bitmap:
     # Just a wrapper class for an array of 1's and 0's in case a more efficient implementation is required in the future
@@ -38,7 +39,7 @@ class Bitmap:
     def __getitem__(self, key):
         if not isinstance(key, tuple): key = (key,)
         key = (slice(None),slice(None)) + (key)
-        return self.bitmap[key]
+        return self.bitmap[key][0,0] # TODO Ensure this [0,0] didn't break any existing functionality
 
     def __setitem__(self, key, value):
         if not isinstance(key, tuple): key = (key,)
@@ -113,3 +114,21 @@ class Bitmap:
         for i, coord in enumerate(coords):
             parts[i][coord] = self[coord]
         return parts
+    
+    # Consider moving the below to solution set
+
+    def expand(self, row, col):
+        return Bitmap(self.rows, self.cols, bitmap=F.pad(self.bitmap, (0,col,0,row,0,0,0,0)))
+
+    def trim_zeros(self, dim=0):
+        # Removes all rows or columns that only contain zeros
+        if dim == 1: bitmap = self.bitmap[:,:,:,self.bitmap.abs().sum(dim=2).bool().flatten()]
+        if dim == 0: bitmap = self.bitmap[:,:,self.bitmap.abs().sum(dim=3).bool().flatten(),:]
+        return Bitmap(self.rows, self.cols, bitmap=bitmap)
+
+    def flatten(self):
+        return self.bitmap.view(-1)
+    
+    @staticmethod
+    def concatenate(b1, b2, dim=0):
+        return Bitmap(b1.rows, b1.cols, bitmap=torch.cat([b1.bitmap, b2.bitmap], dim=dim+2))
