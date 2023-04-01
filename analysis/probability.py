@@ -49,7 +49,7 @@ def calculate_probabilities(B: Board, stats:SolverStats=None, verbose=0):
         c_possiblities = comb(c_size - 1, num_mines - 1)
     # Iterate over counts to find the total number of valid continuations
     for n, count in total_counts.items():
-        if n > num_mines: continue # Skip if count requires more mines than what's available
+        if num_mines < n: continue # Skip if count requires more mines than what's available
         if n + c_size < num_mines: continue # Skip if not enough mines to solve
         if c_size == 0:
             # If there are no complement items, just add the count
@@ -78,6 +78,10 @@ def calculate_probabilities(B: Board, stats:SolverStats=None, verbose=0):
             # Find number of solutions with mine present
             cond_counts = solution.get_solution_counts_with_mines([coord])
             if verbose >= 3: print(f'if mine at {coord}, component counts: {cond_counts}')
+            # Skip computation if no solutions have mine at location (to avoid synthesis of solutions via combination)
+            if len(cond_counts) == 0: 
+                probabilities[coord] = 0
+                continue
             # Merge counts of other regions
             for j, count in enumerate(counts):
                 if i == j or count is None: continue
