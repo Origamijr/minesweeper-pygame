@@ -205,6 +205,7 @@ def __expand_msm_graph_once(MSMG:MSM_Graph, verbose=0):
                     if dm.sum() == 0: continue
                     to_add.append(MSM_Node(MSM(dm, n=0, pos=other.pos())))
                     if verbose >= 4: print(f'found 1-2 rule 2')
+            # TODO add rules 3 and 4
     added = False
     if verbose >= 4 and len(to_add) > 0: print(f"to_add: {to_add}")
     for new_node in to_add:

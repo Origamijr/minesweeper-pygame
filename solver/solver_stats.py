@@ -16,9 +16,9 @@ class SolverStats:
     
     def __repr__(self):
         if self.player:
-            return f'[Time: {self.time:.3f}, 3BV/s: {self.get_3bvs():.3f}, Clicks: {self.clicks}, Efficiency: {self.get_efficiency()}, Risk: {self.risk*10:.2f}%]'
+            return f'[Time: {self.time:.3f}, 3BV/s: {self.get_3bvs():.3f}, Clicks: {self.clicks}, Eff: {self.get_efficiency()}, Risk: {self.risk*10:.2f}%]'
         else:
-            return f'[Time: {self.time:.3f}, Efficiency: {int(self.get_efficiency()*100)}%, Risk: {self.risk*100:.2f}%, Guesses: {self.guesses}, Uncaught Logic: {self.uncaught_logic}]'
+            return f'[Time: {self.time:.3f}, Eff: {int(self.get_efficiency()*100)}%, Risk: {self.risk*100:.2f}%, Guesses: {self.guesses}, Uncaught Logic: {self.uncaught_logic}]'
 
     def start_timer(self):
         self._timer = time.perf_counter()

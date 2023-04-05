@@ -76,7 +76,7 @@ def calculate_probabilities(B: Board, stats:SolverStats=None, verbose=0):
             # Insert a mine at square and reduce board
             if verbose >= 3: print(f'computing probability at {coord}')
             # Find number of solutions with mine present
-            cond_counts = solution.get_solution_counts_with_mines([coord])
+            cond_counts = solution.get_solution_counts_with_coords(mine_coords=[coord])
             if verbose >= 3: print(f'if mine at {coord}, component counts: {cond_counts}')
             # Skip computation if no solutions have mine at location (to avoid synthesis of solutions via combination)
             if len(cond_counts) == 0: 

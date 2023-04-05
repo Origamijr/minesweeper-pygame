@@ -115,20 +115,11 @@ class Bitmap:
             parts[i][coord] = self[coord]
         return parts
     
-    # Consider moving the below to solution set
-
-    def expand(self, row, col):
-        return Bitmap(self.rows, self.cols, bitmap=F.pad(self.bitmap, (0,col,0,row,0,0,0,0)))
-
-    def trim_zeros(self, dim=0):
-        # Removes all rows or columns that only contain zeros
-        if dim == 1: bitmap = self.bitmap[:,:,:,self.bitmap.abs().sum(dim=2).bool().flatten()]
-        if dim == 0: bitmap = self.bitmap[:,:,self.bitmap.abs().sum(dim=3).bool().flatten(),:]
-        return Bitmap(self.rows, self.cols, bitmap=bitmap)
+    def powerset(self):
+        # Returns list of all subsets of the bitmap
+        power_set = [Bitmap(*self.shape)]
+        for bit in self.decimate(): power_set += [s+bit for s in power_set]
+        return power_set
 
     def flatten(self):
         return self.bitmap.view(-1)
-    
-    @staticmethod
-    def concatenate(b1, b2, dim=0):
-        return Bitmap(b1.rows, b1.cols, bitmap=torch.cat([b1.bitmap, b2.bitmap], dim=dim+2))
