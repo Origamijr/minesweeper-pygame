@@ -37,9 +37,10 @@ def seperate_connected_msm_components(MSMG:MSM_Graph) -> list[MSM_Graph]:
     # Note: The components have the same references as the original graph
     return components
 
-def try_step_msm(MSMG:MSM_Graph, clear_bitmap:Bitmap=None, mine_bitmap:Bitmap=None, verbose=0):
+def try_step_msm(MSMG:MSM_Graph, clear_bitmap:Bitmap=None, mine_bitmap:Bitmap=None, number_bitmap:Bitmap=None, verbose=0):
     """
     Logic reduce a MSM graph with a set of spaces to assume clear and/or mine
+    Does not guarantee consistency is maintained
     """
 
     # Assert nonoverlapping bitmaps
@@ -63,6 +64,13 @@ def try_step_msm(MSMG:MSM_Graph, clear_bitmap:Bitmap=None, mine_bitmap:Bitmap=No
         num_mine = mine_bitmap.sum()
         # Create a Node for the cleared positions with all mines
         MSMG.add_node(MSM_Node(MSM(mine_bitmap, n=num_mine, pos=pos, size=num_mine)))
+
+    # Same, but with a number creating an MSM over the neighbors
+    if number_bitmap is not None:
+        number_bitmap = number_bitmap.clone()
+        for pos, dec_bit in zip(number_bitmap.nonzero(), number_bitmap.decimate()):
+            MSMG.add_node(MSM_Node(MSM(dec_bit.closure() * MSMG.bitmap(), n=number_bitmap[pos], pos=pos)))
+
 
     # Solve the graph with the new node inserted
     to_clear, to_flag = second_order_msm_reduction(MSMG, minecount_first=True, verbose=verbose)

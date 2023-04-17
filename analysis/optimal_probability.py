@@ -8,10 +8,14 @@ from solver.solver_stats import SolverStats
 import torch
 from math import comb
 
-def calculate_probabilities(B: Board, stats:SolverStats=None, verbose=0):
-    """
-    Takes a board and computes probability for each square using exhaustive count
-    """
+def calculate_safety(B: Board, order=1, stats:SolverStats=None, verbose=0):
+    # base case
+    if order == 0:
+        if B.unknown().any():
+            return 1
+        return 1 if B.is_complete() else 0
+
+    # TODO this code is just copied and completely incoherent. rewrite to recursive function
     num_mines = B.n
     B, msm, _, _ = get_msm_graph(B, verbose=verbose)
     num_mines -= B.M.sum()

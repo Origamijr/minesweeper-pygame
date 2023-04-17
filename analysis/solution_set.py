@@ -165,8 +165,22 @@ class SolutionSet:
         return {num_mines.item(): count.item() for num_mines, count in zip(*torch.unique(mine_counts, return_counts=True))}
     
     def get_progress_with_coords(self, mine_coords=[], clear_coords=[]):
-        # TODO this call will necessarily call get_solution_with_coords when it's most certainly been already called. Consider memoization
         solutions = self.solution_table.get_solutions_with_coords(mine_coords=mine_coords, clear_coords=clear_coords)
         if solutions.shape[0] == 0: return 0
         solution_counts = torch.sum(solutions, dim=0, dtype=torch.int)
         return torch.sum((solution_counts == 0) * self.bitmap) - len(clear_coords)
+    
+    def get_stats_with_coords(self, mine_coords=[], clear_coords=[]):
+        solutions = self.solution_table.get_solutions_with_coords(mine_coords=mine_coords, clear_coords=clear_coords)
+        mine_counts = torch.sum(solutions, dim=1, dtype=torch.int)
+        if len(mine_counts) == 0: 
+            counts = {0: 0}
+        else:
+            counts = {num_mines.item(): count.item() for num_mines, count in zip(*torch.unique(mine_counts, return_counts=True))}
+        
+        solution_counts = torch.sum(solutions, dim=0, dtype=torch.int)
+        if solutions.shape[0] == 0: 
+            progress = 0
+        else:
+            progress = torch.sum((solution_counts == 0) * self.bitmap) - len(clear_coords)
+        return counts, progress
