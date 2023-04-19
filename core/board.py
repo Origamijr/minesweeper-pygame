@@ -143,7 +143,7 @@ class Board:
             bbbv += 1
         for coord in self.C.nonzero():
             # One click for everything else
-            if counted[zero_coord] == 1: continue
+            if counted[coord] == 1: continue
             bbbv += 1
         return bbbv
 
