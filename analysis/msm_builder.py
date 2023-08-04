@@ -9,7 +9,7 @@ def get_msm_graph(B: Board, order=2, reduced_board=False, verbose=0):
     assert order in [1,2]
 
     # mine reduce the board completely
-    B_orig = B.copy()
+    B_orig = B.clone()
     B = B.reduce()
 
     # If minecounting applies, we can mark certain coordinates as probability 1 areas

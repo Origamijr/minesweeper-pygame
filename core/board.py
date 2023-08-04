@@ -12,13 +12,14 @@ NEIGHBOR_KERNEL = torch.tensor([[[[1.,1.,1.],
 class Board:
     def __init__(self, rows, cols, n, M:Bitmap=None, C:Bitmap=None, N:Bitmap=None):
         self.rows, self.cols, self.n = rows, cols, n
+        self.shape = (self.rows, self.cols)
 
         # Knowledge sets
         self.M = M if M is not None else Bitmap(rows, cols)
         self.C = C if C is not None else Bitmap(rows, cols)
         self.N = N if N is not None else Bitmap.neg_ones(rows, cols) # -1 indicates don't care
 
-    def copy(self):
+    def clone(self):
         return copy.deepcopy(self)
 
     @staticmethod
@@ -148,11 +149,13 @@ class Board:
         return bbbv
 
     def neighbor_mask(self, x, y):
+        # Returns a mask with 1s at the square adjacent to (x,y)
         n_mask = Bitmap(self.rows, self.cols)
         n_mask[x,y] = 1
         return n_mask.neighbor_count_map()
 
     def number_mask(self):
+        # Returns a mask with 1s where there are numbers
         return -self.N.get_mask(-1)
             
     def set_mine(self, x, y, v=1):
@@ -186,8 +189,11 @@ class Board:
     def get_mines(self):
         return self.M.nonzero()
     
+    def get_neighbor_mines(self, x, y):
+        return (self.M * self.neighbor_mask(x, y)).nonzero()
+    
     def reduce(self):
-        B = self.copy()
+        B = self.clone()
         for mine_coord in B.get_mines():
             B.subtract_mine(*mine_coord)
         return B

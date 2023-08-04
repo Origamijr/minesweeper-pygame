@@ -18,8 +18,8 @@ def flatten_msm_dict(d):
 
 def merge_disjoint_counts(counts1, counts2):
     # Merge counts of dijoint sets
-    if len(counts1) == 0: return counts2
-    if len(counts2) == 0: return counts1
+    if counts1 is None or len(counts1) == 0: return counts2
+    if counts2 is None or len(counts2) == 0: return counts1
     counts = dict()
     for (n1, count1), (n2, count2) in itertools.product(counts1.items(), counts2.items()):
         if not n1+n2 in counts: counts[n1+n2] = 0

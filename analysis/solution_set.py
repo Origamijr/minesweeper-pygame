@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 from core.bitmap import Bitmap
 import itertools
+from copy import deepcopy
 
     
 class SolutionTable:
@@ -17,6 +18,9 @@ class SolutionTable:
     def __len__(self):
         return self.curr_element + 1
     
+    def __repr__(self):
+        return '\n'.join([str(torch.reshape(row, (self.rows, self.cols)).numpy()) for row in self.table])
+    
     def _coord2col(self, x, y):
         # convert (x,y) coordinate to column index
         return x * self.cols + y
@@ -29,6 +33,9 @@ class SolutionTable:
     def _capacity(self):
         return self.table.shape[0]
     
+
+    # ===== Methods to add and combine Solutions =====
+
     def add(self, solution:Bitmap):
         self.curr_element += 1
         if self.curr_element >= self._capacity(): self._expand(self._capacity())
@@ -54,6 +61,9 @@ class SolutionTable:
         new_solution_bitmap.curr_element = new_solution_bitmap.table.shape[0] - 1
         return new_solution_bitmap
     
+
+    # ===== Methods to count solutions =====
+
     def solution_intersection_mask(self, coords, val=1):
         # Return true/false size n bitmask indicating if solution as value val at coordinates given
         self._trim_rows()
@@ -87,9 +97,21 @@ class SolutionSet:
         self.bitmap = bitmap # Indicates the area the set has solutions over
         self.solution_table = None if self.bitmap is None else SolutionTable(self.bitmap.shape)
 
+    @staticmethod
+    def powerset(bitmap:Bitmap):
+        ss = SolutionSet()
+        ss.bitmap = bitmap
+        solution_table = SolutionTable(bitmap.shape)
+        for soln in bitmap.powerset():
+            solution_table.add(soln)
+        ss.solution_table = solution_table
+        return ss
+
     def __repr__(self) -> str:
-        return 'Solutions over\n' + repr(self.bitmap) + '\n{'+',\n'.join([repr(soln) for soln in self.solutions])+'}'
+        return 'Solutions over\n' + repr(self.bitmap) + '\n'+repr(self.solution_table)
     
+    def clone(self):
+        return deepcopy(self)
 
     # ===== Methods to add and combine Solutions =====
 
@@ -131,38 +153,57 @@ class SolutionSet:
         ss.solution_table = ss1.solution_table.combine(ss2.solution_table)
         return ss
     
-    def add_unknown_region(self, unknown_bitmap:Bitmap):
+    def add_region(self, bitmap:Bitmap):
         # Add all possible solutions involving a new unknown region
         # TODO consider adding a limit on number of mines if unknown region is large
-        assert self.bitmap is None or not (self.bitmap * unknown_bitmap).any()
-        ust = SolutionTable(unknown_bitmap.shape)
+        unknown_bitmap = bitmap - self.bitmap
+        unknown_soln_table = SolutionTable(unknown_bitmap.shape)
         for soln in unknown_bitmap.powerset():
-            ust.add(soln)
+            unknown_soln_table.add(soln)
         if self.bitmap is None:
             self.bitmap = unknown_bitmap
-            self.solution_table = ust
+            self.solution_table = unknown_soln_table
         else:
             self.bitmap += unknown_bitmap
-            self.solution_table.combine(ust)
+            self.solution_table.combine(unknown_soln_table)
     
 
     # ===== Methods to count solutions =====
 
     def get_solution_counts(self):
+        # Wrapper for argumentless get_solution_counts_with_coords
         return self.get_solution_counts_with_coords()
 
     def get_solution_counts_with_coords(self, mine_coords=[], clear_coords=[]):
+        # Return the number of solutions with coords that agree with the parameter, groupped by minecount
         solutions = self.solution_table.get_solutions_with_coords(mine_coords=mine_coords, clear_coords=clear_coords)
         mine_counts = torch.sum(solutions, dim=1, dtype=torch.int)
         if len(mine_counts) == 0: {0: 0}
         return {num_mines.item(): count.item() for num_mines, count in zip(*torch.unique(mine_counts, return_counts=True))}
 
     def get_solution_counts_with_numbers(self, clear_coords, numbers):
+        # Return the number of solutions with numbers that agree with the parameter, groupped by minecount
         assert len(clear_coords) == len(numbers)
         solutions = self.solution_table.get_solutions_with_numbers(clear_coords, numbers)
         mine_counts = torch.sum(solutions, dim=1, dtype=torch.int)
         if len(mine_counts) == 0: {0: 0}
         return {num_mines.item(): count.item() for num_mines, count in zip(*torch.unique(mine_counts, return_counts=True))}
+
+    def get_solution_counts_for_numbers(self, coord, mine_coords=[], clear_coords=[]):
+        # Return the number of solutions with coords that agree with the parameter, groupped by number of mines around input coord
+        solutions = self.solution_table.get_solutions_with_coords(mine_coords=mine_coords, clear_coords=clear_coords)
+        if len(solutions) == 0: {0: 0}
+        neighbor_mask = Bitmap.coords(self.bitmap.shape[0], self.bitmap.shape[1], [coord]).closure(count_center=False).flatten() != 0
+        local_solutions = solutions[:,neighbor_mask]
+        local_mine_counts = torch.sum(local_solutions, dim=1, dtype=torch.int)
+        local_mine_counts_opts = torch.unique(local_mine_counts)
+        mine_counts = torch.sum(solutions, dim=1, dtype=torch.int)
+        counts = dict()
+        for local_count in local_mine_counts_opts:
+            local_count_mask = local_mine_counts == local_count
+            mine_counts_filt = mine_counts[local_count_mask]
+            counts[local_count.item()] = {num_mines.item(): count.item() for num_mines, count in zip(*torch.unique(mine_counts_filt, return_counts=True))}
+        return counts
     
     def get_progress_with_coords(self, mine_coords=[], clear_coords=[]):
         solutions = self.solution_table.get_solutions_with_coords(mine_coords=mine_coords, clear_coords=clear_coords)
