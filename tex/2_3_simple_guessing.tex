@@ -1,0 +1,17 @@
+\section{``Simple" Guessing}\label{sec:simple_guessing}
+There may be situations where you are unable to apply patterns you know or use logic to find the next square to click. It may also be that time is ticking and you simply want to get another click in as quick as possible. In both of these cases, you are forced to make a guess. Guessing inherently has a chance of ending your game immediately, but in my opinion, it is what makes playing minesweeper fun.\\
+
+Unfortunately the math for determining how to guess is rather cumbersome, and not too useful for beginner and intermediate players, so as a TL;DR, the guessing strategy for the generically available difficulties using only local information is as follows:
+
+\thm{Guessing Priority via ``Simple" Heuristic}{
+\begin{enumerate}
+    \item Blind Guesses (guesses not adjacent to a numbered square, i.e., completely unknown squares) with less than 3 completely unknown neighbors
+    \item \textbf{Corners}; Blind Guesses with exactly 3 completely unknown neighbors (effective corners)
+    \item Squares near numbers with maximum effective mine count of 1 among $\geq3$ shared squares and $\leq4$ completely unknown neighbors; Blind Guesses with exactly 4 completely unknown neighbors
+    \item \textbf{Edges}; Blind Guesses with exactly 5 completely unknown neighbors (effective edges)
+    \item Low mine probability areas near numbered squares (just use intuition)
+    \item Anything else
+\end{enumerate}
+}
+
+A square is said to be completely unknown if it is not adjacent to any cleared cells. The explanation for this table is given in Section \ref{sec:simple_guessing}

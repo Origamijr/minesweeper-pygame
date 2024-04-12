@@ -1,0 +1,39 @@
+\chapter{Introduction}
+
+\subsubsection*{Who am I?}
+
+I am not among the elites of minesweeper. As of writing, my best time on expert difficulty is 80 seconds\footnote{My minesweeper.online profile: \url{https://minesweeper.online/player/1896875}}, leaving me much room to improve. I do, however, love playing this game.\\
+
+I discovered minesweeper in 3rd grade. My parents got me an old IBM ThinkPad 20M to do essays and nothing else. For gaming, I was restricted to the 4 games that came with Windows 98: Solitaire, Freecell, Hearts, and Minesweeper. At the time, I barely understood the rules or strategy, and I was not allowed free time on the internet to learn either. I got more into minesweeper towards the end of high school, when I inherited the family laptop nobody bothered to use because the case was so broken beyond repair. Unable to effectively play any other games on it, I turned to playing the built in Windows 7 minesweeper to pass time. Being more mature, I actually sat down and learned the game. Using the laptop trackpad, I was able to clear the expert difficulty on a regular basis. During college, I discovered minesweeper.online, and started to actually try to get better at the game. Even as I got to build my own PC capable of playing higher fidelity games, minesweeper was a game I'd always play during the frequent gaps I procrastinated on assignments.\\
+
+Requiring fast-paced logic balanced with quick risk assessment, playing minesweeper has become one of my favorite past-times to put me into a pleasant state of flow. It is my hope that more people will be able to enjoy this game as much as I do.\\
+
+\subsubsection*{What is this?}
+
+This document is an unnecessarily long guide on minesweeper. As a graduate student in engineering, I find myself typesetting a lot of homework and papers in LaTeX, so I thought it'd be fun to put my thoughts on minesweeper in a similar format. There are already a fair number of papers exploring the math of minesweeper\footnote{Collection of math papers on minesweeper \url{https://minesweepergame.com/math-papers.php}}, however the math I present in this document in completely in the service of the player, aiming to root the decisions that can be made in minesweeper within a mathematical framework. My goal is to assemble and formalize everything I've learned about minesweeper, from the patterns beginners learn to the guessing strategies I've developed based on computer simulations, into a single document in the most comprehensive way possible. To reiterate, this document is just for fun.\\
+
+\subsubsection*{What is this not?}
+
+While this is a strategy guide, this is not a guide by example. While there are examples in this document (when I remember to add them in), the goal is to develop a framework for analysis that works in arbitrary positions. There are plenty of great guides that are more visual\footnote{Lowenthal made a 117 page guide (I hope to do longer eventually) \\ \url{https://minesweepergame.com/file/Minesweeper-JohnLowenthal-1992.pdf}}\footnote{minesweeper.com also has a lot of guides\url{https://minesweeper.online/help/guides}}, but I hope to insert some mathematical rigor into the analysis of minesweeper that seems to be missing from other guides.\\
+
+\subsubsection*{Who is this for?}
+
+Mostly myself. However, I'd be overjoyed if anyone else read over this document and either learned something or otherwise found it enjoyable. I aim to break down the game to the most basic level, so players of any skill level will be able to take away something from this document.\\
+
+\subsubsection*{Why is this document so confusing?}
+
+I found the motivation to write this document an interesting contradiction. I want the ideas in this document to ultimately serve as tips to improve human play for minesweeper. However, after skimming this document a person will quickly realize that this document is not very human readable.\\
+
+My intention is not to gatekeep the ideas I lay out. Quite the contrary. However, one concept ends up building up on another, and it is very difficult to print short explanations without setting up notation and frameworks to abbreviate thought. I'm well aware of the pedagogical challenges math faces, and I try my best to take things really slow, step by step. Section 2 was an attempt to alleviate these notational problems, by hiding away much of the math and summarize tips derived from the rest of the document, that can be immediately useful to novice to intermediate players.\\
+
+\subsubsection*{I found something that should be changed/added in this document.}
+
+Unfortunately I'm only human, so I'm very prone to errors. If any are found, feel free to DM me on minesweeper online\footnote{My minesweeper.online profile again: \url{https://minesweeper.online/player/1896875}}. Also, my knowledge of the existing works on the math behind minesweeper remains limited. If there are any works that expands on an idea in a more thorough way than I do, I would like to know so I can read it, redirect whoever is reading this to them, and maybe reference their ideas in future edits.\\
+
+\subsubsection*{How is this document structured?}
+
+Section 2 starts out with the very basics that are typically picked up within the first few days of playing. For players already familiar with the game, no new information will likely be learned here. Section 3 dives deeper into the clicks that you can through pure logic. In this section, the mathematical framework I use to describe minesweeper is also introduced. Section 4 looks at the problem of optimal guessing in the framework of probability. Section 5 takes a side step to look at efficiency, which is given by solving a board in the least amount of click possible. Section 6 steps away from meat space entirely to see how a computer can approach minesweeper, and to see what insights computer play can give regarding human play. Finally, section 7 looks at various goals of playing minesweeper and how strategies may differ between each goal.\\
+
+\subsubsection*{Acknowledgements}
+
+Shout out to the kind people at minesweeper online and their great collection of guides\footnote{\url{https://minesweeper.online/help/guides}}. Shoutout to MSCoach for answering some of my questions regarding his solver algorithm. Also shoutout to my brother who I inundated with snippets of this document although he understood absolutely none of it.\\

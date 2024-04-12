@@ -1,0 +1,132 @@
+\section{Optimal Guessing - Maximizing Probability of Winning}
+
+Now let's actually look into the probability of a guess leading to a win. One can describe the ideal guessing strategy as guessing the unknown square that maximizes the chance of winning. Put informally this perfect strategy can be given by
+\begin{align*}
+    \text{Best Guess}=\arg\max_{a\in U}P(\text{Win}|\text{Guessed $a$})
+\end{align*}
+While easy to say in English, let us dive into why selecting the optimal guess is very difficult to do in practice.\\
+
+\subsection{Is it optimal to guess the safest square?}\label{sec:ssmp_inacc}
+
+A common misconception is that the best guess is the guess with the lowest probability of being a mine. Consider the example below on a $2\times5$ grid with 4 mines and 6 possible solutions
+\begin{center}
+    \begin{minipage}{0.25\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellone \& \cellflex{\LARGE $a$}{unknown} \& \cellflex{\LARGE $b$}{unknown} \& \cellflex{\LARGE $c$}{unknown} \& \cellflex{\LARGE $d$}{unknown} \\
+        \cellone \& \cellflex{\LARGE $e$}{unknown} \& \cellflag \& \cellthree \& \cellflag \\
+    \end{minesweeperboard}}\end{minipage}
+\end{center}
+It should be clear that $a$ and $e$ form an MSM with 1 mine, and $b$, $c$, and $d$ form an MSM with 1 mine as well. As such, $P_M(a)=P_M(e)=\frac{1}{2}$ and $P_M(b)=P_M(c)=P_M(d)=\frac{1}{3}$. We can see that $c$ should not be guessed since it will always necessitate another guess (we will see in a later section that $c$ is a dead square). Without loss of generality, focus analysis on $a$ and $b$.\\
+
+If $a$ is safe, $N(a)$ can take on two possible values
+\begin{center}
+    \begin{minipage}{0.25\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellone \& \celltwo \& \cellmsm{$b$}{color2} \& \cellmsm{$c$}{unknown} \& \cellmsm{$d$}{unknown} \\
+        \cellone \& \cellmsm{$e$}{color3} \& \cellflag \& \cellthree \& \cellflag \\
+    \end{minesweeperboard}}\end{minipage}
+    \begin{minipage}{0.25\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellone \& \cellthree \& \cellmsm{$b$}{color3} \& \cellmsm{$c$}{color2} \& \cellmsm{$d$}{color2} \\
+        \cellone \& \cellmsm{$e$}{color3} \& \cellflag \& \cellthree \& \cellflag \\
+    \end{minesweeperboard}}\end{minipage}
+\end{center}
+\begin{itemize}
+    \item If $N(a)=2$, knowledge of $b$ is clear and $N(b)$ will determine if $c$ and $d$ are safe, so no more guessing is required and the game is won.
+    \item If $N(a)=3$, all mines are determined so the game is won.
+\end{itemize}
+As such, $P(\text{Win}|\text{Guessed $a$})=P_C(a)=\frac{1}{2}$.\\
+
+If $b$ is safe, $N(b)$ can take on two possible values
+\begin{center}
+    \begin{minipage}{0.25\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellone \& \cellmsm{$a$}{unknown} \& \celltwo \& \cellmsm{$c$}{color2} \& \cellmsm{$d$}{color3} \\
+        \cellone \& \cellmsm{$e$}{unknown} \& \cellflag \& \cellthree \& \cellflag \\
+    \end{minesweeperboard}}\end{minipage}
+    \begin{minipage}{0.25\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellone \& \cellmsm{$a$}{unknown} \& \cellthree \& \cellmsm{$c$}{color3} \& \cellmsm{$d$}{color2} \\
+        \cellone \& \cellmsm{$e$}{unknown} \& \cellflag \& \cellthree \& \cellflag \\
+    \end{minesweeperboard}}\end{minipage}
+\end{center}
+In both cases, there are two possible solutions each, and a 50/50 guess must be made. As such, $P(\text{Win}|\text{Guessed $b$})=\frac{1}{2}P_C(b)=\frac{1}{2}\left(\frac{2}{3}\right)=\frac{1}{3}$.\\
+
+So although $a$ is more likely to be a mine than $b$, it is in fact better to guess $a$ than $b$ to maximize the chance of winning. Not going to lie, it does bother me a little bit when people claim that the safest guess is the best guess.\\
+
+The example here is relatively simple as it is near the end of the game where all solutions can be easily enumerated, but one can intuitively see how calculating the probability of winning for each guess is a very difficult task.
+
+
+\subsection{Optimal Strategy Formulation}
+
+Although I only illustrated why the safest guess is not necessarily the guess that will most likely lead to a win, hopefully we understand that there's probably no simple way to figure out what the optimal guess actually is. However, this will not stop us from trying to create a formula for the optimal guess. Let's try looking at this problem in a different lens. If you have read this far, take a deep breath, because the math in this section is the culmination of our entire setup, and the hardest it'll get.\\
+
+Trying to solve this problem raw can be very challenging, so we'll borrow the mathematical framework of a well known probability construct, Markov decision processes. Much exploration has already been put into formulating minesweeper as a Markov decision process\footnote{Nakov and Wei's paper: \url{https://minesweepergame.com/math/minesweeper-minesweeper-2003.pdf}} or a partially observable Markov decision process\footnote{Couetoux, Milone and Teytaud's paper:\\ \url{https://minesweepergame.com/math/consistent-belief-state-estimation-with-application-to-mines-2011.pdf}}\footnote{Legendre et al.: \url{https://minesweepergame.com/math/minesweeper-where-to-probe-2012.pdf}}. For the purposes of this section, I will use a Markov decision process formulation in the interest of introducing the least amount of new variables.\\
+
+A Markov decision process (MDP) is a 4-tuple $(S,A,P_a,R_a)$. $S$ is the a state space, $A$ is an action space, $P_a(s,s')$ is the probability of moving from state $s$ to state $s'$ given that action $a$ takes place, and $R_a(s,s')$ is the reward gained from moving from state $s$ to state $s'$ with action $a$. Under this definition, we can attempt to formulate playing minesweeper as an MDP.
+\begin{itemize}
+    \item $S=\{B\in\mathbb{B}|B\text{ natural}\}\cup\{\bot\}$: The state space is the space of natural boards along with a lose state $\bot$.
+    \item $A=\mathbb{Z}^2$: The action space is the set of squares. We can think of an action as clicking on said square.
+    \item $P_a(B,B')=\begin{cases}
+    P_{N^k}(a) & \text{if $N'(a)=k$ and $B'=B|_{N^k(\{a\})}$}\\
+    P_M(a) & \text{if $B'=\bot$}\\
+    1 & \text{if $B=B'$ and either $B=\bot$ or $B$ complete}\\
+    0 & \text{o/w}
+    \end{cases}$\\
+    A board $B$ can only transition to board $B'$ on action the action of clicking $a$ if and only if $a$ is in the unknown region of $B$, $B$ and $B'$ align everywhere except $a$, and clicking $a$ does not end the game. In this case, the probability of moving from $B$ to $B'$ is simply the probability of the number in $B'$ at $a$ for $B$. The probability of moving to a lose state is simply the probability of a mine at $a$. Finally, the lose state and complete boards are closed with only self loops.
+    \item $R_a(B,B')=\begin{cases}
+    1 & \text{if $B\neq B'$ and $B'$ complete}\\
+    0 & \text{o/w}
+    \end{cases}$\\
+    Since our concern is only winning, we will get a reward of 1 when moving into a winning state and 0 otherwise.
+\end{itemize}
+Note that this formulation of the MDP assumes that the game does not automatically clear openings when a 0 is cleared, but this should be fine as one can still manually clear the neighbors of a 0 cell.\\
+
+The objective of an MDP formulation is typically in the formulation of a policy $\pi$. A policy $\pi:S\to A$ is a function that takes the current state $B$, and outputs the action $a$ that should be taken at state $B$. We can understand a policy as a guessing strategy, as it takes the current board and outputs what the next guess should be. To align our discussion of MDPs with minesweeper and in a meager attempt to reduce math jargon, I will refer use the word strategy instead of policy. 
+
+\defn{Strategy}{
+A \textbf{Strategy} is a function $\pi:\mathbb{B}\to\mathcal{A}$ so that given board $B$, strategy $\pi$ would decide to click $\pi(B)=a$.
+}
+
+So if we had an optimal strategy $\pi^*$, then the answer to our original problem is simply
+\begin{align*}
+    \text{Best Guess}=\pi^*(B)
+\end{align*}
+
+A strategy is evaluated on the expected total reward it will achieve. We can observe that under our formulation, a ``good" strategy will always select an $a$ in the unknown space of $B\in S$, so at most $r\cdot c$ (or more generally the number of unknown squares in our starting board $B_0$) steps will be taken before either the win reward is reached, or we are certain our policy has lost. Supposing our initial board is $B_0$, we only need to evaluate our strategy on as many steps as there are unknown squares, i.e., $|U_0|\leq r\cdot c$ steps. If $B_0$ is empty, $|U_0|=r\cdot c$. The formulation of our objective is then
+\begin{align*}
+    V^{\pi}(B_0)&=\ev{\sum_{t=0}^{|U_0|-1}R_{\pi(B_t)}(B_t,B_{t+1})}
+\end{align*}
+Since all transition probabilities $P_a(B,B')$ are known, this expression can be determined in closed form. The most common approach to evaluating this expected value is through a set of equations called value iteration with a process called backward recursion. The $k$-th value equation given strategy $\pi$, $V_k^\pi$, is given by
+\begin{align*}
+    V_k^{\pi}(B)&=\sum_{B'\in S}P_{\pi(B)}(B,B')(R_{\pi(B)}(B,B')+V_{k+1}^{\pi}(B'))
+\end{align*}
+where $V_{|U_0|}^\pi(B)=0$ for all $B$, and our desired value is given by $V^\pi(B_0)=V_0^\pi(B_0)$. Intuitively, these equations just start at the ending rewards, and work backwards $T$ times while keeping track of the reward and the probabilities that the reward will be achieved.\\
+
+Under our MDP formulation of minesweeper were a reward of $1$ is achieved if and only if the strategy wins, we can also see that the probability of winning given strategy $\pi$ is given by the expected reward $V^{\pi}(B_0)$ where $B_0$ is an empty board with all squares in the playable area are unknown. As such, we can refer to the value as the probability of winning.\\
+
+With minor modification, value iteration can be modified to find the optimal reward working backwards, allowing for the computation of the optimal strategy. To do this, instead of computing the value according a a specific strategy $\pi$, we simply have the value function take whatever equal whatever maximizes the last step, and work backwards as follows
+\begin{align*}
+    V_k^*(B)&=\max_a\left\{\sum_{B'\in S}P_a(B,B')(R_a(B,B')+V_{k+1}^*(B'))\right\}
+\end{align*}
+with the same setup as before, setting $V_{|U_0|}^\pi(B)=0$ for all $B$. The optimal probability of winning any board $B_0$ then becomes $V^*(B_0)=V_0^\pi(B_0)$. Since we know the optimal values for a given board our optimal strategy simply becomes to select the square that leads to the highest expected value, or in math,
+\begin{align*}
+    \text{Best Guess}&=\pi^*(B)=\arg\max_a\sum_{B'\in S}P_a(B,B')V^*(B')
+\end{align*}
+In our usage of MDPs, we ended up introducing $P_a(B,B')$ and $R_a(B,B')$, which, if we look at our definitions for them, are pretty sparse. Closing up this section, it would be prudent to unravel the formula for $\pi^*$ in terms of our building block probabilities $P_M(a)$ and $P_{N^k}(a)$.\\
+
+First notice that we don't actually care about the order we compute $V_k^*(B)$, so long as our base case is 0 and the number of iterations we do equals the number of unknown squares in our initial board, $|U|$ minus the mines we know remain $n-\sum_{a\in\mathbb{Z}^2}M(a)$. So let us re-index the backwards recursion so the optimal strategy becomes\begin{align*}
+    V_0(B)&=0\;\;\;\;\forall B\in\mathbb{B}\\
+    V_k(B)&=\max_a\left\{\sum_{B'\in S}P_a(B,B')(R_a(B,B')+V_{k-1}(B'))\right\}\;\;\;\;\forall k\geq1\\
+    \pi^*(B)&=\arg\max_a\sum_{B'\in S}P_a(B,B')V_{|U|-n+\sum_{b\in\mathbb{Z}^2}M(b)-1}(B')
+\end{align*}
+
+Next, let's attempt to get rid of $P_a(B,B')$ and $R_a(B,B')$. First note that if $B'=\bot$, it is impossible to reach a reward since $\bot$ is a closed state, so we only need to consider the transitions to augmented boards $B|_{N^k(\{a\})}$. Finally, given we iterate as many times as there are safe unknown squares, we know that complete boards can only be evaluated in the last state. Our final formulation finally becomes the following.
+
+\thm{Best Guess for a Board for Maximizing Winning Probability}{
+Given board $B$, let $T=|U|-n+\sum_{a\in\mathcal{A}}M(a)$ be the number of unknown safe squares on the board. The best guess, denoted $\pi^*(B)$, is given by \begin{align*}
+    \pi^*(B)&=\argmax_{a\in U}\sum_{k=0}^8P_{N^k}(a)V_{T-1}\left(B|_{N^k({\{a\}})}\right)
+\end{align*}
+where the expected probability of winning in $k$ steps, $V_k(B)$, is given recursively by 
+\begin{align*}
+    V_0(B)&=\mathbbm{1}_{\text{complete}}(B)\\
+    V_k(B)&=\max_a\left\{\sum_{k=0}^8P_{N^k}(a)V_{k-1}\left(B|_{N^k({\{a\}})}\right)\right\}\;\;\;\;\forall k\geq1
+\end{align*}
+}
+
+These equations seems deceptively easy to calculate each iteration being a summation and comparison of a linear number of terms with respect to the size of the unknown space. However, as we'll discuss in Chapter \ref{sec:algorithms}, we'll see that computing $P_{N^k}(a)$ can take exponential time with respect to the size of the unknown region, making each computation of $V_k$ very slow. This difficulty is why it is very difficult to guess optimally, and also why we don't actually know the true probability of winning any reasonably large minesweeper board.\\

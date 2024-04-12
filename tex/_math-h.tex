@@ -1,0 +1,154 @@
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{bbm}
+
+\makeatletter
+\def\thm@space@setup{%
+  \thm@preskip=\parskip \thm@postskip=0pt
+}
+
+% Math commands
+\newenvironment{sysmatrix}[1]
+ {\left[\begin{array}{@{}#1@{}}}
+ {\end{array}\right]}
+\newcommand{\ro}[1]{%
+  \xrightarrow{\mathmakebox[\rowidth]{#1}}%
+}
+\newlength{\rowidth}% row operation width
+\newcommand{\vt}[3]{\begin{sysmatrix}{c}#1\\#2\\#3\end{sysmatrix}}
+\AtBeginDocument{\setlength{\rowidth}{3em}}
+\newcommand\bigzero{\makebox(0,0){\text{\huge0}}}
+
+\newcommand*\Eval[3]{\left.#1\right\rvert_{#2}^{#3}}
+\newcommand\norm[1]{\left\lVert#1\right\rVert}
+
+\newcommand{\cov}[1]{\text{Cov}\left(#1\right)}
+\newcommand{\ev}[1]{E\left[#1\right]}
+
+\newcommand{\argmin}{\mathop{\mathrm{arg\,min}}\limits}
+\newcommand{\argmax}{\mathop{\mathrm{arg\,max}}\limits}
+
+
+% Theorems + other boxed stuff (adapted from gilles castel)
+\makeatother
+\usepackage{thmtools}
+\usepackage[framemethod=TikZ]{mdframed}
+\mdfsetup{skipabove=1em,skipbelow=0em}
+
+\declaretheoremstyle[
+    headfont=\bfseries\sffamily\color{ForestGreen!70!black}, 
+    notefont=\bfseries\sffamily\color{ForestGreen!70!black}, 
+    bodyfont=\normalfont,
+    notebraces={( }{ )},
+    headpunct={},
+    postheadspace=1em,
+    mdframed={
+        linewidth=2pt,
+        rightline=false, topline=false, bottomline=false,
+        linecolor=ForestGreen, backgroundcolor=ForestGreen!5,
+    }
+]{defshaded}
+
+\declaretheoremstyle[
+    headfont=\bfseries\sffamily\color{NavyBlue!70!black}, 
+    notefont=\bfseries\sffamily\color{NavyBlue!70!black}, 
+    bodyfont=\normalfont,
+    notebraces={( }{ )},
+    headpunct={},
+    postheadspace=1em,
+    mdframed={
+        linewidth=2pt,
+        linecolor=NavyBlue
+    }
+]{egbox}
+
+\declaretheoremstyle[
+    headfont=\bfseries\color{RawSienna!70!black}, 
+    notefont=\bfseries\color{RawSienna!70!black}, 
+    bodyfont=\normalfont,
+    notebraces={( }{ )},
+    headpunct={},
+    postheadspace=1em,
+    mdframed={
+        linewidth=2pt,
+        rightline=false, topline=false, bottomline=false,
+        linecolor=RawSienna, backgroundcolor=RawSienna!5,
+    }
+]{thmshaded}
+
+\declaretheoremstyle[
+    headfont=\bfseries\sffamily\color{RawSienna!70!black}, 
+    notefont=\bfseries\sffamily\color{RawSienna!70!black}, 
+    bodyfont=\normalfont,
+    notebraces={( }{ )},
+    headpunct={},
+    postheadspace=1em,
+    mdframed={
+        linewidth=2pt,
+        rightline=false, topline=false, bottomline=false,
+        linecolor=RawSienna
+    }
+]{thmline}
+
+\declaretheoremstyle[
+    headfont=\bfseries\sffamily\color{RawSienna!70!black}, 
+    notefont=\bfseries\sffamily\color{RawSienna!70!black}, 
+    bodyfont=\normalfont,
+    notebraces={( }{ )},
+    headpunct={},
+    postheadspace=1em,
+    mdframed={
+        linewidth=2pt,
+        rightline=false, topline=false, bottomline=false,
+        linecolor=RawSienna, backgroundcolor=RawSienna!1,
+    },
+    qed=\qedsymbol
+]{thmproof}
+
+\theoremstyle{definition}
+
+\declaretheorem[style=defshaded, numbered=no, name=Definition]{definition}
+\declaretheorem[style=egbox, numberwithin=chapter, name=Example]{example}
+\declaretheorem[style=thmshaded, numberwithin=chapter, name=Theorem]{theorem}
+\declaretheorem[style=thmshaded, numberwithin=chapter, sibling=theorem, name=Proposition]{proposition}
+\declaretheorem[style=thmshaded, numberwithin=chapter, sibling=theorem, name=Lemma]{lemma}
+\declaretheorem[style=thmshaded, numberwithin=chapter, sibling=theorem, name=Corollary]{corollary}
+\declaretheorem[style=thmline, numbered=no, name=Remark]{remark}
+\declaretheorem[style=thmline, numbered=no, name=Note]{note}
+
+\declaretheorem[style=thmproof, numbered=no, name=Proof]{replacementproof}
+\renewenvironment{proof}[1][\proofname]{\vspace{-1.1em}\begin{replacementproof}}{\end{replacementproof}}
+\AtBeginEnvironment{proof}{\renewcommand{\qedsymbol}{}}{}{}
+
+\newcommand{\eg}[2]{
+    \begin{example}[#1]\phantom{.}\newline#2\end{example}
+}
+\newcommand{\thm}[2]{
+    \begin{theorem}[#1]\phantom{.}\newline#2\end{theorem}
+}
+\newcommand{\cor}[2]{
+    \begin{corollary}[#1]\phantom{.}\newline#2\end{corollary}
+}
+\newcommand{\lem}[2]{
+    \begin{lemma}[#1]\phantom{.}\newline#2\end{lemma}
+}
+\newcommand{\defn}[2]{
+    \begin{definition}[#1]\phantom{.}\newline#2\end{definition}
+}
+
+
+% misc
+\newcommand{\shrug}[1][]{%
+\begin{tikzpicture}[baseline,x=0.8\ht\strutbox,y=0.8\ht\strutbox,line width=0.125ex,#1]
+\def\arm{(-2.5,0.95) to (-2,0.95) (-1.9,1) to (-1.5,0) (-1.35,0) to (-0.8,0)};
+\draw \arm;
+\draw[xscale=-1] \arm;
+\def\headpart{(0.6,0) arc[start angle=-40, end angle=40,x radius=0.6,y radius=0.8]};
+\draw \headpart;
+\draw[xscale=-1] \headpart;
+\def\eye{(-0.075,0.15) .. controls (0.02,0) .. (0.075,-0.15)};
+\draw[shift={(-0.3,0.8)}] \eye;
+\draw[shift={(0,0.85)}] \eye;
+% draw mouth
+\draw (-0.1,0.2) to [out=15,in=-100] (0.4,0.95); 
+\end{tikzpicture}}

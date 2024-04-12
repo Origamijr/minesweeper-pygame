@@ -1,0 +1,237 @@
+\section{A Few Theorems for Logical Inference}\label{sec:theorems}
+
+With our new notation, we can revisit our basic patterns in a more formal sense. Since these theorems outline what a player ought to do in a board state, it can be useful to understand mathematically what an action that ought\footnote{As per Hume's Guillotine, although you ought to do an action logically, you are not forced to comply, but noncompliance will result in your death. For real though, a bit of poor choice of wording, but I couldn't think of better notation} to be done would look like.
+
+\defn{Functions that ought to apply to a board}{
+Let $B\in\mathbb{B}$ and $A\subset\mathcal{A}$. There \textbf{ought} to be $k$ mines in $A$, notated $M(A)\mapsto k$ if $\forall B'\in\mathbb{B}$ such that $B'$ is natural, complete and $B\Rightarrow B'$, $\sum_{a\in A}M'(a)=k$. Equivalently defined, being ought to be $k$ clear cells in $A$ is notated $C(A)\mapsto k$.
+}
+
+Note that if $M(A)\mapsto|A|$, then all board continuations contain mines in each square of $A$. As such, all the cells contain mines and ought to be flagged. Similarly if $C(A)\mapsto|A|$, all the cells are safe and ought to be cleared.\\
+
+Since this definition operates on complete boards, we get the following consequence.
+\begin{proposition}\label{thm:m=s-c}
+$M(A)\mapsto k$ if and only if $C(A)\mapsto |A|-k$
+\end{proposition}
+\begin{proof}
+    Suppose $M(A)\mapsto k$, then $\forall B'$ complete such that $B\Rightarrow B'$, $\sum_{a\in A}M'(a)=k$. Since $B'$ complete, $\forall a\in A$, $M'(a)+C'(a)=1$, so we have\begin{align*}
+        M'(a)+C'(a)&=1\\
+        \sum_{a\in A}(M'(a)+C'(a))&=\sum_{a\in A}1\\
+        \sum_{a\in A}M'(a)+\sum_{a\in A}C'(a)&=|A|\\
+        \sum_{a\in A}C'(a)&=|A|-\sum_{a\in A}M'(a)\\
+        \sum_{a\in A}C'(a)&=|A|-k
+    \end{align*}
+    Hence $C(A)\mapsto|A|-k$. The reverse proof is identical.
+\end{proof}
+
+As a result of the last proposition, we can restrict our discussion to how many mines ought to be in $A$, since the number of clear cells ought to be in $A$ can always be derived. This means that we'll only see $M(A)\mapsto k$, but saying $C(A)\mapsto |A|-k$ is equally valid.\\
+
+Arbitrary sets of squares don't always ought to have a number of mines. For instance, on an empty board, a random square $a$ can either have $M'(a)=0$ or 1 for any complete board $B'$, so there doesn't exist a $k$ such that $M(\{a\})\mapsto k$. As such, it will be useful to categorize the sets $A\subset\mathcal{A}$ such that there exists $k$ so $M(A)\mapsto k$.
+
+\defn{Mutually Shared Mines (MSM)}{
+A set of squares $A\subset\mathcal{A}$ has \textbf{Mutually Shared Mines} if there exists $k$ such that $M(A)\mapsto k$. In this case we call $A$ an MSM.
+}
+
+As far as I know, I'm the only one who calls sets of squares that must have a constant amount of mines MSMs, but there doesn't seem to be a consensus on what these regions are called, and MSM is a really short name, so I'm sticking with it.\\
+
+By finding MSM, we eventually want to make inferences on squares that ought to be cleared or flagged. Simply put, if $M(\{a\})\mapsto1$, we concluded $a$ contains a mine in all continuations and should be flagged. On the other hand, if we ought to have $M(\{a\})\mapsto0$, we concluded $a$ does not contain a mine in all continuations and should be cleared. It may be useful to encapsulate this notion in a term.\\
+
+\defn{Board Inference}{\index{Inference!definition}
+We can make an \textbf{Inference} on a board $B$ if there exists $a$ such that $M(\{a\})\mapsto1$ or $M(\{a\})\mapsto0$.
+}
+
+The goal of this section is to ultimately identify instances where inferences can be made on a board, and if so what those inferences are. There are two things to note first though. First, it is not always possible to make an inference. We can easily see that this is a case on any empty board $n\neq0$ or $n\neq|\mathcal{A}|$. In these cases, a guess would need to be made (refer to Chapter \ref{sec:guessing}). Second, Inference is hard to do perfectly.  TODO
+
+We will now begin stating some theorems to find these squares that ought to be cleared or flagged.\\
+
+\newpage
+\subsection{First Order MSMs - MSMs from Board Information}
+
+Given an arbitrary board $B$, there are some trivially determinable MSM from the already known information.
+
+\lem{Trivial MSM}{\label{thm:trivial_msm}
+If $M(a)=1$ for all $a\in A\subset\mathcal{A}$, then $M(A)\mapsto |A|$. On the other hand, if $C(a)=1$ for all $a\in A\subset\mathcal{A}$, then $M(A)\mapsto 0$.
+}
+\begin{proof}
+    Suppose $M(a)=1$ for all $a\in A$. Then $\forall B'$ complete such that $B\Rightarrow B'$, $1=M(a)\leq M'(a)$, so $M'(a)=1$ for all $a\in A$, hence $\sum_{a\in A}M'(a)=|A|$. The proof for $C(a)=1$ is identical.
+\end{proof}
+
+The main source of information we have to determine where mines ought to be are the numbers $N$. For a natural board, we have numbers at every cleared square. As one would infer, each number induces an MSM.
+
+\lem{Number Induced MSM}{\label{thm:number_msm}
+$\forall a$ such that $N(a)\in\mathbb{Z}$, $M(K(a))\mapsto N(a)$
+}
+\begin{proof}
+    Suppose $N(a)\in\mathbb{Z}$. Then $\forall B'$ complete such that $B\Rightarrow B'$, $N(a)=N'(a)$. Since $|K(a)|=8$, by Proposition \ref{thm:m=s-c}, $\sum_{b\in K(a)}M'(a)=8-\sum_{b\in K(a)}C'(a)$. Since $\sum_{b\in K(a)}M'(a)\leq N'(a)\leq 8-\sum_{b\in K(a)}C'(b)$, we must have $\sum_{b\in K(a)}M'(a)=N'(a)=8-\sum_{b\in K(a)}C'(b)$. This means $M(K(a))\mapsto N'(a)=N(a)$.
+\end{proof}
+This result should be intuitive, since board completions have the same number as the current board, and complete boards must be consistent in their mine numbering.\\
+
+Since these MSMs are obtained immediately from information on the board without knowledge of other MSMs, we'll call these MSMs first order MSMs. While these two lemmas are useful to discover MSMs in their simplicity, one should not actually use them in practice. This is because while we are playing, we only care about what actions we ought to take on the unknown squares $U$. However, the trivial MSMs are only over the squares we already have knowledge of, and the number induced MSMs may contain squares we already have knowledge of.\\
+
+So while MSM can be defined on arbitrary sets $A\in\mathcal{A}$, it is only useful if $A$ is contained in the unknown region, i.e., $A\subset U$. From this, we can understand that we ought to increase the size of our knowledge set $M$ or $C$ by finding sets $A\subset U$ such that $A$ is an MSM.\\
+
+Soon, we will discuss a more useful theorem for first order MSM discovery that acts only on the unknown set of squares $U$.\\
+
+\subsection{Second Order MSMs - MSMs from other MSMs}
+
+As we probably know, there are more ways to find $A\subset U$ such that $M(A)\mapsto0$ or $|A|$ besides basic minecounting. However, without involving $n$ yet, there are no more ways to immediately find MSM besides from the numbers. This is where we can consider how MSM interact to generate MSM from their subsets. We'll call the MSM generated this way second order MSMs, since they have to be inferred from the existence of other MSM.\\
+
+\subsubsection*{MSM Subsets}
+
+The simplest relationship between MSMs is the subset relation. In fact, if we have a subset relation between MSMs, we are guaranteed to find another MSM.
+
+\thm{MSM Subset}{\label{thm:subset}
+Let $A\subset B\subset\mathcal{A}$. If $M(A)\mapsto k_A$ and $M(B)\mapsto k_B$, then $M(B\setminus A)\mapsto k_B-k_A$.
+}
+\begin{proof}
+    Since $M(A)\mapsto k_A$ and $M(B)\mapsto k_B$, $\sum_{a\in A}$, then $\forall B'$ complete such that $B\Rightarrow B'$, $\sum_{a\in A}M'(a)=k_A$ and $\sum_{a\in B}M'(a)=k_B$. Since $A\subset B$, subtracting one equation from the other,\begin{align*}
+        \sum_{a\in B}M'(a)-\sum_{a\in A}M'(a)&=k_B-k_A\\
+        \sum_{a\in B\setminus A}M'(a)&=k_B-k_A
+    \end{align*}
+    hence $M(B\setminus A)\mapsto k_B-k_A$.
+\end{proof}
+
+When illustrating logic on the board, this MSM subset relation is often the easiest to  illustrate, as it creates a partition over the unknown space.\\
+
+We can immediately use the MSM Subset theorem to describe a more useful formulation for the first order MSM.
+
+\thm{Unknown Number Neighborhood MSM}{\label{thm:unk_num}
+    If $N(a)\in\mathbb{Z}$, then $M(K_U(a))\mapsto N(a)-|K_M(a)|$.
+}
+\begin{proof}
+    By Lemma \ref{thm:number_msm}, we know $M(K(a))\mapsto N(a)$. Moreover, from Lemma \ref{thm:trivial_msm}, $M(K_M(a))\mapsto|K_M(a)|$ and $M(K_C(a))\mapsto0$. Since $U$, $M$, and $C$ are a partition of all squares, $K_U(a)=(K(a)\setminus K_M(a))\setminus K_C(a)$. By Theorem \ref{thm:subset},\begin{align*}
+    M(K_U(a))&=M((K(a)\setminus K_M(a))\setminus K_C(a))\\
+    &\mapsto(|N(a)|-|K_M(a)|)-0\\
+    &=N(a)-|K_M(a)|
+\end{align*}
+\end{proof}
+
+By this theorem, we can describe a TODO\\
+
+Let us now formally state three of the basic patterns.
+\cor{All Mines}{
+If $N(a)=|K_U(a)|+|K_M(a)|$, then $M(K_U(a))\mapsto|K_U(a)|$.
+}
+\begin{proof}
+By Theorem \ref{thm:unk_num},\begin{align*}
+    M(K_U(a))&\mapsto|N(a)|-|K_M(a)|\\
+    &=|K_U(a)|+|K_M(a)|-|K_M(a)|\\
+    &=|K_U(a)|
+\end{align*}
+\end{proof}
+
+TODO\\
+
+\cor{Chordable}{
+If $N(a)=|K_M(a)|$, then $M(K_U(a))\mapsto0$.
+}
+\begin{proof}
+    By Theorem \ref{thm:unk_num}, \begin{align*}
+    M(K_U(a))&\mapsto|N(a)|-|K_M(a)|\\
+    &=|K_M(a)|-|K_M(a)|\\
+    &=0
+\end{align*}
+\end{proof}
+
+TODO\\
+
+\cor{Generalized 1-1 Pattern}{\index{1-1 Pattern!theorem}
+If $N(a)-|K_M(a)|=N(b)-|K_M(b)|$ and $K_U(a)\subset K_U(b)$, then $M(K_U(b)\setminus K_U(a))\mapsto0$.
+}
+\begin{proof}
+    By Theorem \ref{thm:unk_num}, we know $M(K_U(a))\mapsto N(a)-|K_M(a)|$ and $M(K(b))\mapsto N(b)-|K_M(b)|$. Hence by Theorem \ref{thm:subset}, $M(K_U(b)\setminus K_U(a))\mapsto(N(b)-|K_M(b)|)-(N(a)-|K_M(a)|)$. Since by hypothesis $N(a)-|K_M(a)|=N(b)-|K_M(b)|$, $M(K_U(b)\setminus K_U(a))\mapsto0$.
+\end{proof}
+
+TODO\\
+
+\subsubsection*{MSM Intersection}
+
+Recall that the 1-2 pattern is given by the condition $(N(b)-|K_M(b)|)-(N(a)-|K_M(a)|)=|K_U(b)\setminus K_U(a)|$, or that the difference in numbers is equal to the number of unknown squares in the vicinity of one, but not the other. The 1-2 pattern is foundational in a lot of minesweeper logic, due to its simplicity, and its wide applicability.\\
+
+Before formally stating the 1-2 pattern though, we can explore one more general result.
+
+\thm{MSM Disjoint-Difference}{\label{thm:disj-diff}
+Let $A,B_1,\dots,B_m\subset U$ such that $\forall i,j$ so $i\neq j$, $B_i\cap B_j=\emptyset$. If $M(A)\mapsto k_A$ and $M(B_i)\mapsto k_i$, then we have the following 
+\begin{enumerate}
+    \item If $|A\setminus\bigcup_{i=1}^mB_i|=k_A-\sum_{i=1}^mk_i$\begin{itemize}
+        \item $\forall a\in A\setminus\bigcup_{i=1}^mB_i$, $M(\{a\})\mapsto1$
+        \item $\forall b\in(\bigcup_{i=1}^mB_i)\setminus A$, $M(\{b\})\mapsto0$
+    \end{itemize}
+    \item If $|\bigcup_{i=1}^mB_i\setminus A|=\sum_{i=1}^mk_i-k_A$\begin{itemize}
+        \item $\forall a\in A\setminus\bigcup_{i=1}^mB_i$, $M(\{a\})\mapsto0$
+        \item $\forall b\in(\bigcup_{i=1}^mB_i)\setminus A$, $M(\{b\})\mapsto1$
+    \end{itemize}
+\end{enumerate}
+}
+\begin{proof}
+    Since $B_i$ are disjoint and $M(B_i)\mapsto k_i$, we have for complete board continuation $B'$ \begin{align*}
+        \sum_{a\in\bigcup_i^mB_i}M'(a)=\sum_{i=1}^m\left(\sum_{a\in B_i}M'(a)\right)=\sum_{i=1}^mk_i
+    \end{align*}
+    so $M(\bigcup_{i=1}^mB_i)\mapsto \sum_{i=1}^mk_i$. We know $M(A)\mapsto k_A$, so $\sum_{a\in A}M'(A)=k_A$. Consider the cases\begin{enumerate}
+        \item Suppose $|A\setminus\bigcup_{i=1}^mB_i|=k_A-\sum_{i=1}^mk_i$. We get\begin{align*}
+            |A\setminus\bigcup_{i=1}^mB_i|&=k_A-\sum_{i=1}^mk_i\\
+            &=\sum_{a\in A}M'(A)-\sum_{a\in\bigcup_i^mB_i}M'(a)\\
+            &=\left(\sum_{a\in A\setminus\bigcup_{i=1}^mB_i}M'(A)+\sum_{a\in A\cap\bigcup_{i=1}^mB_i}M'(A)\right)-\left(\sum_{a\in A\cap(\bigcup_{i=1}^mB_i)}M'(a)+\sum_{a\in(\bigcup_{i=1}^mB_i)\setminus A}M'(a)\right)\\
+            &=\sum_{a\in A\setminus\bigcup_{i=1}^mB_i}M'(a)-\sum_{a\in(\bigcup_{i=1}^mB_i)\setminus A}M'(a)
+        \end{align*}
+        Since $M':\mathbb{Z}^2\to\{0,1\}$, equality can only occur if all the terms in the left summation are 1 and all the terms in the right summation are 0. In other words, $\forall a\in A\setminus\bigcup_{i=1}^mB_i$, $M'(a)=1$ so $M(\{a\})\mapsto1$, and $\forall b\in(\bigcup_{i=1}^mB_i)\setminus A$, $M'(b)=0$ so $M(\{b\})\mapsto0$.
+        
+        \item Suppose $|\bigcup_{i=1}^mB_i\setminus A|=\sum_{i=1}^mk_i-k_A$. The proof is similar to the one above to get $\forall a\in A\setminus\bigcup_{i=1}^mB_i$, $M(\{a\})\mapsto0$ and $\forall b\in(\bigcup_{i=1}^mB_i)\setminus A$, $M(\{b\})\mapsto1$.
+    \end{enumerate}
+\end{proof}
+
+TODO\\
+
+\begin{proposition}
+     If $M(A)\mapsto k_A$ and $M(B_i)\mapsto k_i$, $|A\setminus\bigcup_{i=1}^mB_i|=k_A-\sum_{i=1}^mk_i$ or $|\bigcup_{i=1}^mB_i\setminus A|=\sum_{i=1}^mk_i-k_A$ only if $\forall i$, $A\cap B_i\neq\emptyset$.
+\end{proposition}
+\begin{proof}
+    TODO
+\end{proof}
+
+TODO\\
+
+\cor{Generalized 1-2 Pattern}{\index{1-2 Pattern!theorem}
+If $(N(b)-|K_M(b)|)-(N(a)-|K_M(a)|)=|K_U(b)\setminus K_U(a)|$, then we have the following:
+\begin{itemize}
+    \item $\forall c\in K(b)\setminus K(a)$, $M(c)\mapsto 1$
+
+    \item $\forall c\in K(a)\setminus K(b)$, $M(c)\mapsto 0$
+\end{itemize}
+}
+\begin{proof}
+    By Theorem \ref{thm:unk_num}, $M(K_U(b))\mapsto N(b)-|K_M(b)|$ and $M(K_U(a))\mapsto N(a)-|K_M(a)|$. Directly applying case 1 of Theorem \ref{thm:disj-diff}, we get what we want; $\forall c\in K(b)\setminus K(a)$, $M(c)\mapsto 1$ and $\forall c\in K(a)\setminus K(b)$, $M(c)\mapsto 0$.
+\end{proof}
+
+TODO\\
+
+\thm{MSM Union-Subset}{
+Let $A,B_1,B_2\subset U$ such that $A\subset B_1\cup B_2$. If $M(A)\mapsto k_A$, $M(B_1)\mapsto k_1$, and $M(B_2)\mapsto k_2$, then we have the following \begin{enumerate}
+    \item If $k_A=k_1+k_2$, then $\forall a\in((B_1\cup B_2)\setminus A)\cup (B_1\cap B_2)$, $M(\{a\})\mapsto 0$
+    \item If $k_A=k_1+k_2-1$, then $\forall a\in(B_1\cap B_2)\setminus A$, $M(\{a\})\mapsto 0$
+\end{enumerate}
+}
+\begin{proof}
+    Since $M(A)\mapsto k_A$, $M(B_1)\mapsto 1$, and $M(B_2)\mapsto 1$, we have for complete board continuation $B'$, $\sum_{a\in A}M'(a)=k_A$, $\sum_{a\in B_1}M'(a)=1$, $\sum_{a\in B_2}M'(a)=1$. So we have by inclusion exclusion principle\begin{align*}
+        \sum_{i=1}^2\left(\sum_{a\in B_i}M'(a)\right)-\sum_{a\in A}M'(a)&=k_1+k_2-k_A\\
+        \sum_{a\in B_1\cup B_2}M'(a)+\sum_{a\in B_1\cap B_2}M'(a)-\sum_{a\in A}M'(a)&=k_1+k_2-k_A
+    \end{align*}
+    and since $A\subset B_1\cup B_2$,\begin{align*}
+        \sum_{a\in (B_1\cup B_2)\setminus A}M'(a)+\sum_{a\in B_1\cap B_2}M'(a)&=k_1+k_2-k_A
+    \end{align*}
+    Now consider the two cases:\begin{enumerate}
+        \item If $k_A=k_1+k_2$, then \begin{align*}
+            \sum_{a\in (B_1\cup B_2)\setminus A}M'(a)+\sum_{a\in B_1\cap B_2}M'(a)&=k_1+k_2-(k_1+k_2)\\
+            \sum_{a\in ((B_1\cup B_2)\setminus A)\cup (B_1\cap B_2)}M'(a)&\leq0
+        \end{align*}
+        hence $\forall a\in((B_1\cup B_2)\setminus A)\cup (B_1\cap B_2)$, $M(\{a\})\mapsto 0$.
+
+        \item If $k_A=k_1+k_2-1$, then by the inclusion exclusion principle,\begin{align*}
+            \sum_{a\in (B_1\cup B_2)\setminus A}M'(a)+\sum_{a\in B_1\cap B_2}M'(a)&=k_1+k_2-(k_1+k_2-1)\\
+            \sum_{a\in ((B_1\cup B_2)\setminus A)\cup (B_1\cap B_2)}M'(a)+\sum_{a\in ((B_1\cup B_2)\setminus A)\cap (B_1\cap B_2)}M'(a)&=1\\
+            \sum_{a\in ((B_1\triangle B_2)\setminus A)}M'(a)+2\sum_{a\in ((B_1\cap B_2)\setminus A)}M'(a)&=1\\
+        \end{align*}
+        Since each term on the left is a nonnegative integer, the sum over $((B_1\cap B_2)\setminus A)$ in the right term must equal zero otherwise the left will be at least 2. Hence $\forall a\in(B_1\cap B_2)\setminus A$, $M(\{a\})\mapsto 0$
+    \end{enumerate}
+\end{proof}
+
+TODO\\

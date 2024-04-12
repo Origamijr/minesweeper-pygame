@@ -1,0 +1,178 @@
+\section{Single Mine Probability}
+The first algorithm of interest to most programmers who play minesweeper is usually to determine the probability of a square containing a mine. We'll call this function we want to implement \texttt{Probability}, which takes a board and returns a grid of the same size filled with corresponding probabilities for each square. As we saw in Section \ref{sec:probability}, this would normally involve enumerating the natural complete boards that complete a current board. We will see how that can be done, and if there's any optimizations we can make to make this problem for tractable.\\
+
+\subsection{Exhaustive Approach}
+
+The easiest to understand approach to this problem is to compute mine probability directly from the definition itself, by enumerating all of the solutions.\\
+
+Although there are many ways to enumerate the solutions, I want to call to attention one specific method to possibly enlighten readers on new mathematical insight.\\
+
+One particular interesting formulation of minesweeper was made by Fowler and Young\footnote{https://minesweepergame.com/math/minesweeeper-a-statistical-and-computational-analysis-2004.pdf} in 2004 using linear algebra. Recall that an MSM $A$ is a set of square for which we know the number of mines contained within the set. In Section \ref{sec:theorems}, we saw that $M(A)\mapsto k$ this yielded the equation $\sum_{a\in A}M'(a)=k$ for all valid complete boards that continue our current board.\\
+
+The trick is to notice that these equations are linear with $|\mathcal{A}|$ variables given by $m_a=M'(a)$ for each $a\in\mathcal{A}$. In order to enforce minecount, we just need one more equation $\sum_{a\in\mathcal{A}}M'(a)=n$. All we need need to do is create an equation for each first order MSM from Lemmas \ref{thm:trivial_msm} and \ref{thm:number_msm}. From this, we have a set of linear equations, for which any solution would correspond to a valid board completion.\\
+
+TODO. example\\
+
+However, as one would expect, there are a lot of solutions to this system of equations. We only start with as many equations as we have numbers and flags plus one for the minecount, and any MSM discovered through second order equation does not yield new information since they come from known equations. This often leads to an undercomplete system since we have $|\mathcal{A}|$ unknowns, and often not that many equations when it matters.\\ 
+
+If one had the willpower (and the compute power) to iterate through all $2^{|\mathcal{A}|}$ possible solutions, then computing the single mine probability is easy. Just count the number of solutions with a mine in that square, and divide it by the total number of mines. In pseudocode, this approach is given by the following pseudocode.
+
+\begin{algorithm}[h]
+\caption*{Naive Single Mine Probability through Exhaustive Search}
+\begin{algorithmic}
+\Function{\texttt{Probability}}{$B=(\mathcal{A},n,M,C,N)$}
+\State{$A\gets[[1,1,\dots,1]]$}\Comment{First row is $\sum_{a\in\mathcal{A}}M'(a)=n$}
+\State{$b\gets [n]$}\Comment{First row is $\sum_{a\in\mathcal{A}}M'(a)=n$}
+\For{$a\in\mathcal{A}$}
+    \If{$M(a)=1$}\Comment{Append trivial MSMs $M(a)\mapsto1$ if $M(a)=1$}
+        \State{$A$.append\_row([``1 at column corresponding to $a$, 0s elsewhere"])}
+        \State{$b$.append(1)}
+    \EndIf
+    \If{$C(a)=1$}\Comment{Append trivial MSMs $M(a)\mapsto0$ if $C(a)=1$}
+        \State{$A$.append\_row([``1 at column corresponding to $a$, 0s elsewhere"])}
+        \State{$b$.append(0)}
+    \EndIf
+    \If{$N(a)\in\mathbb{Z}$}\Comment{Append number induced MSMs $M(K(a))\mapsto N(a)$}
+        \State{$A$.append\_row([``1s corresponding to neighbors of $a$, 0s elsewhere"]}
+        \State{$b$.append($N(a)$)}
+    \EndIf
+\EndFor
+\State{Solutions $\gets\emptyset$}
+\For{$x\in\mathbb{R}^{|\mathbb{A}|}$}
+    \If{$Ax=b$}
+        \State{Solutions.append($x$)}
+    \EndIf
+\EndFor
+\For{$a\in\mathcal{A}$}
+    \State{$P(a)\gets$ (\# of solutions with $a$)/solutions.size}
+\EndFor
+\Return $P$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+Finding all the solutions that satisfy the linear system takes exponential time, but can be optimized in various ways.First, one can notice that the minecounting equation actually restricts us to $|\mathcal{A}|\choose n$ solutions, which is still exponential, but smaller than $2^{|\mathcal{A}|}$. We can also notice that we can use Gaussian elimination to reduce the matrix to a smaller block matrix, and discover free variables which can either contain a mine or be clear. In effect, solution enumeration would require discovering what the free variables are, and pruning solutions in the solution tree from which a contradiction arises. This procedure has a lot of intricacies, so I will leave the details for how solutions can be pruned in this approach to the recent paper by Liu et al\footnote{\url{https://minesweepergame.com/math/a-solver-of-single-agent-stochastic-puzzle.pdf}}.\\
+
+I don't want to mislead the reader into believing that the linear algebra approach is inherently slow. In fact, the compact representation of matrices and vectors probably makes this approach the fastest in practice by applying some of the optimizations discussed in the next few sections. However, this compactness leads to a slightly more challenging readability and interpretability for each algorithm. As such, instead I will discuss another common solution enumeration approach which is more ``minesweeper player" interpretable.\\
+
+\subsection{Perimeter Enumeration Approach}
+
+Of course, if the number of unknown squares is large, we can do much better than considering all the solutions. Instead of considering the solutions over the entire unknown region, consider solutions just along the disjoint perimeter sets of the unknown region. Since this is the first discussion of the perimeter of a board, I will give the definition.\\
+
+\defn{Board Perimeter}{\index{perimeter}
+The \textbf{perimeter} of a board $B\in\mathbb{B}$ is given by the set\begin{align*}
+    \mathcal{P}(B)=U-U_C=\bigcup_{\alpha\in\mathcal{A}}K_U(\alpha)
+\end{align*}
+where $\alpha\in\mathcal{A}$ such that $N(\alpha)\in\mathbb{Z}$.
+}
+
+In English, the perimeter is the complement of the complement MSM, or in other words, the set of unknown squares adjacent to a number. In this sense, the perimeter is the set of squares such that we can infer some local constraint on which solutions the square contains a mine.\\
+
+Once we know the perimeter, we can then try to find all solutions over the perimeter. Once we have the solutions, we can group the solutions we have by the number of mines in them. Preimeter solutions that require more mines than $n$ are invalid, and solutions that have less mines than $n-|U_C|$ are invalid.\\
+
+From there we just need to count the number of solutions over the entire unkown space, including the complement MSM $U_C$. Since $U_C$ is not adjacent to any numbers, a solution over $U_C$ can be any combination of its size and the number of mines to be placed in $U_C$. However, if we know $n_\mathcal{P}$ mines are in a perimeter solution, we can determine the number of mines to be placed in the Complement MSM to be $n-n_\mathcal{P}$. For each perimeter solution with $n_\mathcal{P}$, there are then $|U_C|$ choose $n-n_\mathcal{P}$ ways to place solutions. As such, if there are $M_{n_\mathcal{P}}$ perimeter solutions with $n_\mathcal{P}$ mines, then there are $M_{n_\mathcal{P}}$ times $|U_C|$ choose $n-n_\mathcal{P}$ solutions. Considering all solutions, the number of total solutions for a board is then\begin{align*}
+    \sum_{n_\mathcal{P}=n-|U_C|}^nM_{n_\mathcal{P}}{|U_C|\choose{n-n_\mathcal{P}}}
+\end{align*}
+To figure out how many solutions have a mine at $a$, we just need to find the subset of solutions with a mine at $a$ and repeat the above analysis.\\
+
+Although seperating the unknown region into $\mathcal{P}(B)$ and $U_C$, we can still do better. We were able to seperate the perimeter and the complement MSM because they did not share any numbered square in their neighborhood. This means that solutions are independent assuming we don't care about the total number of mines $n$. We can observe that a similar partition can be made over the perimeter itself.\\
+
+If two subsets of the perimeter don't have any common numbered squares in each of their neighborhoods, we can analyze solutions over them seperately, then use a cartesian product when recombing solutions. TODO more detail\\
+
+Now that we have an idea how to count solutions, we still need to know how to obtain all the solutions over an unknown region. For this, simple recursive branch and bound is sufficient. This is illustrated in the subroutine below.
+
+\begin{algorithm}[h]
+\caption*{Finding Solutions for a Board Recursively through Branch and Bound}
+\begin{algorithmic}
+\Function{\texttt{Solutions}}{$B=(\mathcal{A},n,M,C,N)$}
+\If{$|U|==0$ or $B$ not valid}
+    \Return{[$\emptyset$]}
+\EndIf
+\State{$a\gets$ random square in $U$}
+\State{soln1 $\gets$ Solutions(($\mathcal{A},\bot,M,C\cup\{a\},N$)}
+\State{soln2 $\gets$ Solutions(($\mathcal{A},\bot,M\cup\{a\},C,N$)}
+\For{soln in soln2}
+    \State{soln.append($a$)}
+\EndFor
+\Return soln1 $\cup$ soln2
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+With this, the procedure to compute single mine probability is shown below.
+
+\begin{algorithm}[h]
+\caption*{Single Mine Probability through Perimeter Search}
+\begin{algorithmic}
+\Function{\texttt{Probability}}{$B=(\mathcal{A},n,M,C,N)$}
+\State{$K\gets\emptyset$}
+\For{$a\in\mathcal{A}$ such that $N(a)\in\mathbb{Z}$}
+    \State{$K$.append($K_U$)}
+\EndFor
+\State{solutions $\gets\emptyset$}
+\State{components $\gets$ Connected components of $K$ edges defined by intersection (BFS/DFS)}
+\For{$A$ in components}
+    \State{soln $\gets$ \texttt{Solutions}(($\mathcal{A},\bot,M,C\cup A^C,N$))}
+    \For{$s_1$ in solutions}
+        \State{solutions.remove($s_1$)}
+        \For{$s_2$ in soln}
+            \State{solutions.add($s_1\cup s_2$)}
+        \EndFor
+    \EndFor
+\EndFor
+\State{counts $\gets$ histogram of sizes of solutions}
+\State{total, ctotal $\gets0$}
+\For{$(n_\mathcal{P}, M_{n_\mathcal{P}})$ in counts}
+    \If{$n_\mathcal{P}+|U_C|<n<n_\mathcal{P}$}\State{continue}\EndIf
+    \State{total $\gets$ total $+M_{n_\mathcal{P}}\cdot {{|U_C|}\choose{n-n_\mathcal{P}}}$}
+    \State{ctotal $\gets$ ctotal $+M_{n_\mathcal{P}}\cdot {{|U_C|-1}\choose{n-n_\mathcal{P}-1}}$}
+\EndFor
+\For{$a\in\mathcal{A}$}
+    \If{$a\not\in U_C$}
+        \State{counts $\gets$ histogram of sizes of solutions with mine at $a$}
+        \State{$c\gets0$}
+        \For{$(n_\mathcal{P}, M_{n_\mathcal{P}})$ in counts}
+            \If{$n_\mathcal{P}+|U_C|<n<n_\mathcal{P}$}\State{continue}\EndIf
+            \State{$c\gets c+M_{n_\mathcal{P}}\cdot {{|U_C|}\choose{n-n_\mathcal{P}}}$}
+        \EndFor
+        \State{$P(a)\gets c/$total}
+    \Else
+        \State{$P(a)\gets$ ctotal/total}
+    \EndIf
+\EndFor
+\Return $P$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+
+\subsection{EP Graph Approach}
+
+While the runtime is still exponential within each partition of the perimeter in the last approach, we have to wonder if we can still do better. In fact, we can. The search space for solutions can be reduced even more if instead of searching over squares, we seqrch for solutions over equiprobable regions.\\
+
+I'll be honest, this idea came from talking with MSCoach, and I haven't implemented it myself.
+
+\defn{Equiprobability (EP) Set}{
+\textbf{Equiprobability Sets} $G_1,\dots,G_n$ are a partition of $U$ such that $\forall k$, all $n$-th order mine probabilities are invariant within $G_k$. In other words, $\forall a,b\in G_k$ and $\forall c_1,\dots,c_{n-1}\not\in G_k$, $P_M(a,c_1\dots,c_{n-1})=P_M(b,c_1\dots,c_{n-1})$
+}
+
+\thm{Sufficient Condition For Equiprobability}{If $a,b\in U$ such that $K_C(a)=K_C(b)$, then $\forall c_1,\dots,c_{n-1}\not\in G_k$, $P_M(a,c_1\dots,c_{n-1})=P_M(b,c_1\dots,c_{n-1})$.}
+
+\defn{Equiprobability (EP) Graph}{
+Let $G_1,\dots,G_n$ be a set of equiprobability sets. The \textbf{Equiprobability Graph} (EP Graph) $(V_1\cup V_2,E)$ for a board $B$ is a bipartite graph defined by
+\begin{align*}
+    V_1&=\{G_1,\dots,G_n\}\\
+    V_2&=\{a\in\mathcal{A}|C(a)=1,N(a)\in\mathbb{Z}\}\\
+    E&=\{(G,a)\in V_1\times V_2\;|\;b\in G,\,G\subseteq K(a)\}
+\end{align*}
+where the vertices are partitioned into $V_1$, a set of EP sets, and $V_2$, the set of numbered cleared squares in $B$, such that a set and a number have an edge between them if the set lies in the neighborhood of the number (duplicate edges per the size of the $G_k$).
+}
+
+While we can approach this idea of EP groups in the same way we did perimeter enumeration before, ensuring that all nodes $a\in V_2$ have $N(a)$ edges.
+
+TODO complete (probably won't write the algorithm since it's the same as the perimeter approach).\\
+
+
+\subsection*{Is there anything better?}
+
+Idk. Hard to believe that there's a way to compute probability exactly without enumerating the solutions, of which there are exponentially many. I could be convinced by an example though. There's probably faster approximate algorithms, but I didn't explore that route. If anyone has any optimizations for the exact algorithm, I'd be interested to know.\\

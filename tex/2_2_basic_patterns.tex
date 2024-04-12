@@ -1,0 +1,447 @@
+\section{Basic Patterns}\label{sec:basic-patterns}
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|c|p{0.7\linewidth}|}\hline
+         \begin{minipage}{1cm}\begin{minesweeperboard}\cellunk\\\end{minesweeperboard}\end{minipage}& Unknown square: May or may not contain a mine \\\hline
+         \begin{minipage}{1cm}\begin{minesweeperboard}\cellflag\\\end{minesweeperboard}\end{minipage}& Known mine\\\hline
+         \begin{minipage}{1cm}\begin{minesweeperboard}\cellzero\\\end{minesweeperboard}\end{minipage}& Zero square (opening): Does not contain a mine and adjacent squares do not contain a mine\\\hline
+         \begin{minipage}{1.45cm}\begin{minesweeperboard}\cellone\\\end{minesweeperboard}\end{minipage}...\begin{minipage}{1.5cm}\begin{minesweeperboard}\celleight\\\end{minesweeperboard}\end{minipage}& Numbered square: Does not contain a mine and \# adjacent squares contain a mine \\\hline
+         \begin{minipage}{1cm}\begin{minesweeperboard}\celludc\\\end{minesweeperboard}\end{minipage}& Unknown Don't Care (UDC) square: May contain a mine, but we don't care if it contains a mine, or what numerical value it has if it doesn't contain a mine\\\hline
+         \begin{minipage}{1cm}\begin{minesweeperboard}\celldc\\\end{minesweeperboard}\end{minipage}& Don't Care (DC) square: Does not contain a mine, but we don't care about its numerical value\\\hline
+         \begin{minipage}{1cm}\begin{minesweeperboard}\cellsafe\\\end{minesweeperboard}\end{minipage}& Safe square: It can be inferred that there are no mines here; should be cleared\\\hline
+         \begin{minipage}{1cm}\begin{minesweeperboard}\cellmine\\\end{minesweeperboard}\end{minipage}& Unsafe square: It can be inferred that there is a mine here; can be flagged\\\hline
+         \begin{minipage}{1cm}\begin{minesweeperboard}\cellmsm{$A_x$}{possible1}\\\end{minesweeperboard}\end{minipage}& Mutually Shared Mine (MSM) squares: All squares containing the same letter share a possibility of having $x$ number of mines. The existence of $x$ mines within these squares excludes the possibility of the others containing a mine\\\hline
+         \begin{minipage}{1cm}\begin{minesweeperboard}\celllabel{a}\\\end{minesweeperboard}\end{minipage}& Labeled square: An unknown square with a name for ease of reference in explanations\\\hline
+    \end{tabular}
+    \caption{Diagram Key}
+    \label{tab:diagram_key}
+\end{table}
+
+So how do you know which squares to clear and which squares to flag? While I encourage beginners to exercise basic logic to figure out which squares deserve which click, this section will provide a quick cheat-sheet of common simple patterns that occur in play. These patterns are ordered from most simple/common, to the slightly more obscure. This section will not contain all commonly known patterns, but these are the patterns I personally think warrant memorization for a beginner.\\
+
+Section 3 will go over these patterns (and more) in more detail. For now, these patterns can be taken for granted, and will typically be enough to solve nearly all intermediate boards and some expert boards.\\
+
+Before discussing these patterns, a key for the figures used will have to be introduced. A key for the diagrams used in this document is shown in Table \ref{tab:diagram_key} Most of these will be identical the the notation used in game. The first six rows in the table will depict the state of the board. Green cells and red cells indicate areas where conclusions can be drawn hence can be either cleared (green) or flagged (red). The last row describes cells where it is unknown if a mine exists in any individual square, but it is known that mines exists among the squares marked by the same letter.\\
+
+Board diagrams show only a subset of a board, and are assumed to extend infinitely in all directions unless otherwise stated. Squares beyond the edges of the board can be imagined as unknown don't care (UDC) squares.\\
+
+
+\subsection{Local Counting Patterns}
+\subsubsection*{All Mines}
+When the number of unknown spaces surround a number equals that number, one can infer that all those spaces must be mines.
+
+\eg{1-Corner}{
+\begin{center}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellzero \& \celldc \& \cellunk\\
+        \cellzero \& \cellone \& \celldc\\
+        \cellzero \& \cellzero \& \cellzero\\
+    \end{minesweeperboard}}\end{minipage}{\huge$\Rightarrow$}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellzero \& \celldc \& \cellmine\\
+        \cellzero \& \cellone \& \celldc\\
+        \cellzero \& \cellzero \& \cellzero\\
+    \end{minesweeperboard}}\end{minipage}{\huge$\sim$}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellzero \& \celldc \& \cellflag\\
+        \cellzero \& \cellone \& \celldc\\
+        \cellzero \& \cellzero \& \cellzero\\
+    \end{minesweeperboard}}\end{minipage}
+\end{center}
+
+This is a classical situation where the location of a mine can easily be determined.
+}
+
+\eg{Common ``All Mines" Patterns}{
+\begin{center}
+    \begin{tabular}{cc}
+        \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+            \cellzero \& \celldc \& \celldc\\
+            \cellzero \& \celltwo \& \cellunk\\
+            \cellzero \& \celldc \& \cellunk\\
+        \end{minesweeperboard}}\end{minipage}{\huge$\Rightarrow$}
+        \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+            \cellzero \& \celldc \& \celldc\\
+            \cellzero \& \celltwo \& \cellmine\\
+            \cellzero \& \celldc \& \cellmine\\
+        \end{minesweeperboard}}\end{minipage} & 
+        
+        \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+            \cellzero \& \celldc \& \cellunk\\
+            \cellzero \& \cellthree \& \cellunk\\
+            \cellzero \& \celldc \& \cellunk\\
+        \end{minesweeperboard}}\end{minipage}{\huge$\Rightarrow$}
+        \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+            \cellzero \& \celldc \& \cellmine\\
+            \cellzero \& \cellthree \& \cellmine\\
+            \cellzero \& \celldc \& \cellmine\\
+        \end{minesweeperboard}}\end{minipage}\\
+        
+        \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+            \celldc \& \cellunk \& \cellunk\\
+            \celldc \& \cellfour \& \cellunk\\
+            \cellzero \& \celldc \& \cellunk\\
+        \end{minesweeperboard}}\end{minipage}{\huge$\Rightarrow$}
+        \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+            \celldc \& \cellmine \& \cellmine\\
+            \celldc \& \cellfour \& \cellmine\\
+            \cellzero \& \celldc \& \cellmine\\
+        \end{minesweeperboard}}\end{minipage} & 
+        
+        \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+            \cellunk \& \cellunk \& \cellunk\\
+            \celldc \& \cellfive \& \cellunk\\
+            \cellzero \& \celldc \& \cellunk\\
+        \end{minesweeperboard}}\end{minipage}{\huge$\Rightarrow$}
+        \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+            \cellmine \& \cellmine \& \cellmine\\
+            \celldc \& \cellfive \& \cellmine\\
+            \cellzero \& \celldc \& \cellmine\\
+        \end{minesweeperboard}}\end{minipage}
+    \end{tabular}
+
+    These are some more common situations where the location of mines can easily be deduced. 
+\end{center}
+}
+
+As the only action that can be performed with this pattern is flagging, no new information is actually obtained from this pattern, but placing flags following this pattern greatly helps with the visualization of the known information regarding the board.\\
+
+\newpage
+\subsubsection*{Mine Reduction (Chordables)}
+When a numbered cell is adjacent to a number of known mines (flags or a complete set of MSM squares), the number of mines can be subtracted from the known number and logic can be applied as normal, treating the known mines as don't care (DC) squares.\\
+
+If a mine reduction reduces a number to 0 (i.e. the number of mines around a numbered square equals the number in the square), all neighboring cells to the number can be cleared. If the known mines are explicitly marked with flags, the numbered square can be clicked to perform a chord.
+
+\eg{Mine Reduction}{
+\begin{center}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellunk \& \cellunk \& \cellunk\\
+        \celldc \& \celltwo \& \celldc\\
+        \celldc \& \cellflag \& \celldc\\
+    \end{minesweeperboard}}\end{minipage}{\huge$\sim$}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellunk \& \cellunk \& \cellunk\\
+        \celldc \& \cellone \& \celldc\\
+        \celldc \& \celldc \& \celldc\\
+    \end{minesweeperboard}}\end{minipage}{\huge$\sim$}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellmsm{$A_1$}{possible1} \& \cellmsm{$A_1$}{possible1} \& \cellmsm{$A_1$}{possible1}\\
+        \celldc \& \cellone \& \celldc\\
+        \celldc \& \celldc \& \celldc\\
+    \end{minesweeperboard}}\end{minipage}
+\end{center}
+Since there is one known mine adjacent to the 2, the 2 can be thought of as a 1. From there, no more action can be taken, but it can be concluded that the remaining three unknown squares mutually contain one mine.
+}
+
+\eg{Mine Reduction into Chordable}{
+\begin{center}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellunk \& \cellflag \& \cellunk\\
+        \celldc \& \celltwo \& \cellunk\\
+        \cellzero \& \celldc \& \cellflag\\
+    \end{minesweeperboard}}\end{minipage}{\huge$\sim$}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellunk \& \celldc \& \cellunk\\
+        \celldc \& \cellzeromarked \& \cellunk\\
+        \cellzero \& \celldc \& \celldc\\
+    \end{minesweeperboard}}\end{minipage}{\huge$\Rightarrow$}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellsafe \& \celldc \& \cellsafe\\
+        \celldc \& \cellzeromarked \& \cellsafe\\
+        \cellzero \& \celldc \& \celldc\\
+    \end{minesweeperboard}}\end{minipage}{\huge$\sim$}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellsafe \& \cellflag \& \cellsafe\\
+        \celldc \& \celltwo \& \cellsafe\\
+        \cellzero \& \celldc \& \cellflag\\
+    \end{minesweeperboard}}\end{minipage}
+\end{center}
+An example of a case where mine reduction reduces the number to zero. In this case, all neighbors of the reduced number can safely be cleared or chorded. More often than not, the middle two steps are not actually visualized since it's not difficult to count the number of mines around a square.
+}
+
+\eg{Mine Reduction with Mutually Shared Mine Squares}{
+\begin{center}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellunk \& \cellunk \& \cellunk\\
+        \cellunk \& \cellthree \& \cellunk\\
+        \celldc \& \cellthree \& \cellunk\\
+        \cellzero \& \celldc \& \cellflag\\
+    \end{minesweeperboard}}\end{minipage}{\huge$\sim$}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellunk \& \cellunk \& \cellunk\\
+        \cellmsm{$A_2$}{possible1} \& \cellthree \& \cellmsm{$A_2$}{possible1}\\
+        \celldc \& \celltwo \& \cellmsm{$A_2$}{possible1}\\
+        \cellzero \& \celldc \& \celldc\\
+    \end{minesweeperboard}}\end{minipage}{\huge$\sim$}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellmsm{$B_1$}{possible2} \& \cellmsm{$B_1$}{possible2} \& \cellmsm{$B_1$}{possible2}\\
+        \celldc \& \cellone \& \celldc\\
+        \celldc \& \celldc \& \celldc\\
+        \cellzero \& \celldc \& \celldc\\
+    \end{minesweeperboard}}\end{minipage}{\huge$\sim$}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellmsm{$B_1$}{possible2} \& \cellmsm{$B_1$}{possible2} \& \cellmsm{$B_1$}{possible2}\\
+        \cellmsm{$A_2$}{possible1} \& \cellthree \& \cellmsm{$A_2$}{possible1}\\
+        \celldc \& \cellthree \& \cellmsm{$A_2$}{possible1}\\
+        \cellzero \& \celldc \& \cellflag\\
+    \end{minesweeperboard}}\end{minipage}
+\end{center}
+A more complicated example illustrating how mutually shared mine (MSM) squares can also be used in mine subtraction. Note that all the MSM squares in the same group must be adjacent to the number you want to reduce.  This concept will be key in understanding the next two patterns.
+}
+
+
+\subsection{Core Patterns}
+There are two core patterns, the 1-1 pattern and the 1-2 pattern. For someone discovering minesweeper strategy on their own, these will often be among the first patterns they discover. In their simplest form, these patterns are a bit restricting, but the logic used to discover them lead to some nice generalized patterns that can still be recognized at a glance. In a Section 3, it will be discussed how these two patterns are actually the same pattern.
+\subsubsection*{1-1 Pattern}
+When encountering a horizontally or vertically adjacent numbers with the same value, this is a common tool. The 1-1 pattern traditionally has the following form:
+
+\begin{center}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \celldc \& \cellunk \& \cellunk \& \cellsafe\\
+        \celldc \& \cellone \& \cellone \& \celldc\\
+        \celldc \& \cellzero \& \cellzero \& \cellzero\\
+    \end{minesweeperboard}}\end{minipage}
+\end{center}
+
+While most commonly occurring on the straight edge of an opening, it can be generalized to the following
+
+\thm{Generalized 1-1 Pattern}{\index{1-1 Pattern!grid}
+If two numbered cells with the same number $X$ are adjacent and one side is all clear (left side in depiction), the other side is clear.
+\begin{center}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \celldc \& \cellunk \& \cellunk \& \cellsafe\\
+        \celldc \& \cellvar{$X$} \& \cellvar{$X$} \& \cellsafe\\
+        \celldc \& \celludc \& \celludc \& \cellsafe\\
+    \end{minesweeperboard}}\end{minipage}
+\end{center}
+}
+
+where $X$ is any number between 1 and 3. The reasoning behind this pattern can be seen as a sequence of mine reductions as follows:
+
+\begin{center}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \celldc \& \cellunk \& \cellunk \& \cellunk\\
+        \celldc \& \cellvar{$X$} \& \cellvar{$X$} \& \cellunk\\
+        \celldc \& \celludc \& \celludc \& \cellunk\\
+    \end{minesweeperboard}}\end{minipage}{\huge$\sim$}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \celldc \& \cellmsm{$A_X$}{possible1} \& \cellmsm{$A_X$}{possible1} \& \cellunk\\
+        \celldc \& \cellvar{$X$} \& \cellvar{$X$} \& \cellunk\\
+        \celldc \& \cellmsm{$A_X$}{possible1} \& \cellmsm{$A_X$}{possible1} \& \cellunk\\
+    \end{minesweeperboard}}\end{minipage}{\huge$\Rightarrow$}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \celldc \& \celldc \& \celldc \& \cellsafe\\
+        \celldc \& \cellvar{0} \& \cellvar{0} \& \cellsafe\\
+        \celldc \& \celldc \& \celldc \& \cellsafe\\
+    \end{minesweeperboard}}\end{minipage}{\huge$\sim$}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \celldc \& \cellunk \& \cellunk \& \cellsafe\\
+        \celldc \& \cellvar{$X$} \& \cellvar{$X$} \& \cellsafe\\
+        \celldc \& \celludc \& \celludc \& \cellsafe\\
+    \end{minesweeperboard}}\end{minipage}
+\end{center}
+
+The left $X$ makes all adjacent unknown squares into an MSM group. since the MSM group is also adjacent to the right $X$, the right $X$ can be reduced to a zero, hence all the remaining unknown squares adjacent to the right $X$ can safely be cleared.
+
+\eg{1-1 Pattern in $2\times3$ corner opening}{
+\begin{center}
+    \begin{tabular}{cc}
+        \begin{minipage}{0.25\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+            \celldc \& \celldc \& \celldc \& \celldc \& \celldc\\
+            \celldc \& \cellzero \& \cellzero \& \cellone \& \cellunk\\
+            \celldc \& \cellone \& \cellone \& \cellone \& \cellunk\\
+            \celldc \& \cellunk \& \cellunk \& \cellunk \& \cellunk\\
+        \end{minesweeperboard}}\end{minipage}{\huge$\Rightarrow$}
+        \begin{minipage}{0.25\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+            \celldc \& \celldc \& \celldc \& \celldc \& \celldc\\
+            \celldc \& \cellzero \& \cellzero \& \cellone \& \cellunk\\
+            \celldc \& \cellone \& \cellone \& \cellone \& \cellunk\\
+            \celldc \& \cellunk \& \cellsafe \& \cellsafe \& \cellsafe\\
+        \end{minesweeperboard}}\end{minipage}{\huge$\Rightarrow$}
+        \begin{minipage}{0.25\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+            \celldc \& \celldc \& \celldc \& \celldc \& \celldc\\
+            \celldc \& \cellzero \& \cellzero \& \cellone \& \cellunk\\
+            \celldc \& \cellone \& \cellone \& \cellone \& \cellunk\\
+            \celldc \& \cellmine \& \cellsafe \& \cellsafe \& \cellsafe\\
+        \end{minesweeperboard}}\end{minipage}
+    \end{tabular}
+\end{center}
+A 1-1 pattern can be seen here going vertically. This infers 3 clearable squares, which in turn imply that a mine exists due the the existence of a 1-corner after clearing the 3 squares.
+}
+
+
+
+\newpage
+\subsubsection*{1-2 Pattern}
+Along with the 1-1 pattern, this pattern is another common tool used when encountering a straight line of numbers. The most common manifestation of the 1-2 pattern has the following form:
+
+\begin{center}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellsafe \& \cellunk \& \cellunk \& \cellmine\\
+        \celldc \& \cellone \& \celltwo \& \celldc\\
+        \cellzero \& \cellzero \& \cellzero \& \cellzero\\
+    \end{minesweeperboard}}\end{minipage}
+\end{center}
+
+Like the 1-1 pattern, the 1-2 pattern can also be generalized to another form
+
+\thm{1-2 Pattern for Neighboring Numbers}{\index{1-2 Pattern!grid}
+If two numbers are adjacent and the difference between the numbers equals the number of unknown squares adjacent only to the larger number ($Y$ is larger in depiction), then all squares adjacent to only the smaller number are clear and all squares adjacent to only the larger number should be flagged.
+\begin{center}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellsafe \& \celludc \& \celludc \& \cellmine\\
+        \cellsafe \& \cellvar{$X$} \& \cellvar{$Y$} \& \cellmine\\
+        \cellsafe \& \celludc \& \celludc \& \cellmine\\
+    \end{minesweeperboard}}\end{minipage}
+\end{center}
+}
+
+We can see that in our common case, $X=1$ and $Y=2$, with there being $2-1=1$ unknown square in the upper right corner. It is of note that the 1-1 pattern is a special case of the generalized 1-2 pattern, where $X=Y$.\\
+
+The explanation for the more generalized pattern is a little bit more involved, so I will instead explain the common case, and the general case can be proven with similar logic. Suppose the upper left corner contains a mine. Then with chording, we get the following
+\begin{center}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellflag \& \cellunk \& \cellunk \& \cellunk\\
+        \celldc \& \cellone \& \celltwo \& \celldc\\
+        \cellzero \& \cellzero \& \cellzero \& \cellzero\\
+    \end{minesweeperboard}}\end{minipage}{\huge$\Rightarrow$}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellflag \& \cellsafe \& \cellsafe \& \cellunk\\
+        \celldc \& \cellone \& \celltwo \& \celldc\\
+        \cellzero \& \cellzero \& \cellzero \& \cellzero\\
+    \end{minesweeperboard}}\end{minipage}{\huge$\sim$}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellflag \& \celldc \& \celldc \& \cellunk\\
+        \celldc \& \cellone \& \celltwo \& \celldc\\
+        \cellzero \& \cellzero \& \cellzero \& \cellzero\\
+    \end{minesweeperboard}}\end{minipage}
+\end{center}
+which leads to an invalid board since there are no ways to place two mines adjacent to the 2. Hence the initially assumed mine must be safe. We can then conclude the upper right corner is a mine through mine subtraction.
+\begin{center}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellsafe \& \cellunk \& \cellunk \& \cellunk\\
+        \celldc \& \cellone \& \celltwo \& \celldc\\
+        \cellzero \& \cellzero \& \cellzero \& \cellzero\\
+    \end{minesweeperboard}}\end{minipage}{\huge$\sim$}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellsafe \& \cellmsm{$A_1$}{possible1} \& \cellmsm{$A_1$}{possible1} \& \cellunk\\
+        \celldc \& \cellone \& \celltwo \& \celldc\\
+        \cellzero \& \cellzero \& \cellzero \& \cellzero\\
+    \end{minesweeperboard}}\end{minipage}{\huge$\Rightarrow$}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \celldc \& \celldc \& \celldc \& \cellmine\\
+        \celldc \& \cellzeromarked \& \cellone \& \celldc\\
+        \cellzero \& \cellzero \& \cellzero \& \cellzero\\
+    \end{minesweeperboard}}\end{minipage}{\huge$\sim$}
+    \begin{minipage}{0.2\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellsafe \& \cellunk \& \cellunk \& \cellmine\\
+        \celldc \& \cellone \& \celltwo \& \celldc\\
+        \cellzero \& \cellzero \& \cellzero \& \cellzero\\
+    \end{minesweeperboard}}\end{minipage}
+\end{center}
+
+I will leave it as an exercise for the reader to attempt to prove the generalized version of the 1-2 pattern. An even more generalized form of the 1-2 pattern will be introduced and proved in Section \ref{sec:theorems}, but this generalization will prove to suffice for most play.
+
+\eg{1-2 Pattern in $2\times3$ corner opening}{
+\begin{center}
+    \begin{tabular}{cc}
+        \begin{minipage}{0.25\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+            \celldc \& \celldc \& \celldc \& \celldc \& \celldc\\
+            \celldc \& \cellzero \& \cellzero \& \cellone \& \cellunk\\
+            \celldc \& \cellone \& \celltwo \& \celltwo \& \cellunk\\
+            \celldc \& \cellunk \& \cellunk \& \cellmine \& \cellunk\\
+        \end{minesweeperboard}}\end{minipage}{\huge$\sim$}
+        \begin{minipage}{0.25\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+            \celldc \& \celldc \& \celldc \& \celldc \& \celldc\\
+            \celldc \& \cellzero \& \cellzero \& \cellone \& \cellunk\\
+            \celldc \& \cellone \& \cellone \& \cellone \& \cellunk\\
+            \celldc \& \cellmine \& \cellsafe \& \celldc \& \cellsafe\\
+        \end{minesweeperboard}}\end{minipage}{\huge$\Rightarrow$}
+        \begin{minipage}{0.25\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+            \celldc \& \celldc \& \celldc \& \celldc \& \celldc\\
+            \celldc \& \cellzero \& \cellzero \& \cellone \& \cellunk\\
+            \celldc \& \cellone \& \celltwo \& \celltwo \& \cellunk\\
+            \celldc \& \cellmine \& \cellsafe \& \cellmine \& \cellsafe\\
+        \end{minesweeperboard}}\end{minipage}
+    \end{tabular}
+\end{center}
+A mine can be inferred from the 1-2 pattern. After mine reduction, we can see athe 1-1 pattern from Example 2.6, where we can infer two more clear squares and one more mine.
+}
+
+\subsection{Derivative Patterns}
+While the core 1-1 and 1-2 patterns along with local minecounting can allow you to complete most intermediate and some expert boards alone, there are several other patterns derivative of the 1-1 and 1-2 pattern that are worth memorizing to speed up play.\\
+
+\subsubsection*{1-2-1 Pattern}
+This pattern can be solved with the previously mentioned 1-2 pattern, but it is common enough to warrant memorization on its own. We will see later though that a generalized 1-2-1 pattern is actually not derivative of either 1-2 or 1-1 patterns.
+
+\thm{1-2-1 Pattern}{\index{1-2-1 Pattern!grid}
+If a 1, 2, and another 1 appear in a row, then we have the following
+\begin{center}
+    \begin{minipage}{0.25\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellsafe \& \cellmine \& \cellsafe \& \cellmine \& \cellsafe\\
+        \cellsafe \& \cellone \& \celltwo \& \cellone \& \cellsafe\\
+        \cellsafe \& \celldc \& \cellzero \& \celldc \& \cellsafe\\
+    \end{minesweeperboard}}\end{minipage}
+\end{center}
+}
+
+\subsubsection*{1-2-2-1 Pattern}
+Like the 1-2-1 pattern, this is another manifestation of the previously mentioned 1-2 pattern that is also common enough to warrant straight memorization. Again, we will see later though that a generalized 1-2-2-1 pattern is actually not derivative of either 1-2 or 1-1 patterns.\\
+
+\thm{1-2-2-1 Pattern}{\index{1-2-2-1 Pattern!grid}
+If a 1, 2, 2, and 1 appear in a row, then we have the following
+\begin{center}
+    \begin{minipage}{0.3\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellsafe \& \cellsafe \& \cellmine \& \cellmine \& \cellsafe \& \cellsafe\\
+        \cellsafe \& \cellone \& \celltwo \& \celltwo \& \cellone \& \cellsafe\\
+        \cellsafe \& \celldc \& \cellzero \& \cellzero \& \celldc \& \cellsafe\\
+    \end{minesweeperboard}}\end{minipage}
+\end{center}
+}
+
+\subsubsection*{1-T Pattern}
+This normally occurs following a 1-1 pattern or a 1-2 pattern if a 1 is appears on clear. If the 1 is cleared adjacent to another 1, all three squares opposite are clear. One may notice that this is simply a variation of the 1-1 pattern, but is worth memorization.\\
+
+\thm{1-T Pattern}{
+If a 1 appears directly adjacent to a 1 along a cleared wall, then the 3 squares that form a T can be cleared.
+\begin{center}
+    \begin{minipage}{0.25\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellunk \& \cellsafe \& \cellsafe \& \cellsafe \& \cellunk\\
+        \cellunk \& \cellunk \& \cellone \& \cellunk \& \cellunk\\
+        \celldc \& \celldc \& \cellone \& \celldc \& \celldc\\
+        \cellzero \& \cellzero \& \cellzero \& \cellzero \& \cellzero\\
+    \end{minesweeperboard}}\end{minipage}
+\end{center}
+}
+
+\subsubsection*{Mirror Pattern}
+This normally occurs following a 1-T pattern, but also frequently occurs between two openings in close proximity. Whenever a square is on a wall and the only adjacent unknown squares are on one side, followed by a numbered square 2 away, that number must ``mirror" the number on the wall.
+
+\thm{Mirror Pattern}{
+\begin{center}
+    \begin{minipage}{0.25\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellunk \& \cellmsm{$A_Z$}{possible1} \& \cellmsm{$A_Z$}{possible1} \& \cellmsm{$A_Z$}{possible1} \& \cellunk\\
+        \cellunk \& \cellmsm{$A_Z$}{possible1} \& \cellvar{Y} \& \cellmsm{$A_Z$}{possible1} \& \cellunk\\
+        \cellunk \& \celludc \& \celludc \& \celludc \& \cellunk\\
+        \celldc \& \celldc \& \cellvar{X} \& \celldc \& \celldc\\
+        \cellzero \& \cellzero \& \cellzero \& \cellzero \& \cellzero\\
+    \end{minesweeperboard}}\end{minipage}
+\end{center}
+Where $Z=Y-X$.
+}
+
+The most notable case is when $X=Y$, meaning $Z=0$ so all of $A$ are clearable
+
+\thm{Mirror Pattern Special Case}{
+\begin{center}
+    \begin{minipage}{0.25\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellunk \& \cellsafe \& \cellsafe \& \cellsafe \& \cellunk\\
+        \cellunk \& \cellsafe \& \cellvar{X} \& \cellsafe \& \cellunk\\
+        \cellunk \& \celludc \& \celludc \& \celludc \& \cellunk\\
+        \celldc \& \celldc \& \cellvar{X} \& \celldc \& \celldc\\
+        \cellzero \& \cellzero \& \cellzero \& \cellzero \& \cellzero\\
+    \end{minesweeperboard}}\end{minipage}
+\end{center}
+Where $Z=Y-X$.
+}

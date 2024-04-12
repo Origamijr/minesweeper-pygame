@@ -1,0 +1,101 @@
+\section{Mathematical Notation}
+From now on, here be dragons. In order to describe the logic of minesweeper, I will go into a detailed construction of how a board state can be described. The purpose of this notation is two-fold. First, when discussing patterns, it would be ideal to identify them in an orientation independent manner, which this notation will aim to achieve. Second, defining board state in terms of real-valued functions will make discussing probability more concise. As with much of mathematics, formalizing a problem into a usable language is half the battle. For this document, I will adopt similar notation to that use by Philip Crow in ``A Mathematical Introduction to the
+Game of Minesweeper"\footnote{\url{https://minesweepergame.com/math/a-mathematical-introduction-to-the-game-of-minesweeper-1997.pdf}} with some modifications.\\
+
+\defn{Minesweeper Board}{\index{Board!definition}
+A Minesweeper Board $B$ with is defined as a 5-tuple
+\begin{align*}
+    B=(\mathcal{A},n,M,C,N)
+\end{align*}
+where $\mathcal{A}\subset\mathbb{Z}^2$ is a set of squares/tiles, $n\in\mathbb{Z}^+$ is the number of mines on the board, and $M:\mathbb{Z}^2\to\{0,1\}$, $C:\mathbb{Z}^2\to\{0,1\}$, and $N:\mathbb{Z}^2\to\mathbb{Z}\cup\{\ast\}$ are ``knowledge" functions defined as follows:
+\begin{itemize}
+    \item ``Mined": $M(a)=\begin{cases}1&\text{if $a$ is known to contain a mine}\\0&\text{o/w}\end{cases}$
+    \item ``Clear": $C(a)=\begin{cases}1&\text{if $a$ is known to not contain a mine}\\0&\text{o/w}\end{cases}$
+    \item ``Number": $N(a)\in\{0,\dots,8,\ast\}$ is the number of mines known to be adjacent to $a$, where a $\ast$ indicates we don't know/care
+\end{itemize}
+with the following properties:
+\begin{itemize}
+    \item $\forall a\in\mathbb{Z}^2$, $M(a)+C(a)\leq1$: a square cannot both contain a mine and not contain a mine
+    \item $\forall a\not\in\mathcal{A}$, $C(a)=1$: squares not on the board are known to not contain a mine
+    \item $\sum_{a\in\mathbb{Z}^2}M(a)\leq n\leq \sum_{a\in\mathcal{A}}(1-C(a))$: there must be a valid total number of mines
+    \item $\forall a\in\mathcal{A}$ if $N(a)\in\mathbb{Z}$, $N(a)\in[\sum_{b\in K(a)}M(b), 8-\sum_{b\in K(a)}C(b)]$: $N(a)$ must be consistent
+\end{itemize}
+We'll call $\mathbb{B}$ the collection of valid boards.
+}
+
+For the remainder of this document, it can be assumed that $\mathcal{A}=[0,c)\times[0,r)\subset\mathbb{Z}^2$. This describes a minesweeper board as a 2 dimensional grid of squares with $r$ rows and $c$ columns. While much of the discussion in this document will also apply to other regions besides $[0,c)\times[0,r)$ (i.e., nonrectangular boards) and sets besides $\mathbb{Z}^2$ (e.g., 3D minesweeper), we'll restrict the discussion to the typically found rectangular grids.\\ 
+
+The board state is described as a set of three functions $M$, $C$, and $N$. $M$ indicates if a cell is known to contain a mine or not (i.e. flagged, or just mentally noted). $C$ indicates if a cell is cleared (i.e. opening or numbered square). $N$ describes the number of mines adjacent to a cell. Note that the value of $N(a)$ is only known when $C(a)=1$, so if $C(a)=0$, we don't know or don't care about the value of $N(a)$. As $M$ and $C$ are indicator functions, we will often refer to their size as the size of the set they indicate. Together, the cells indicated by $M$ and $C$ are known as the knowledge set, since it includes cells we have knowledge of. $M$, $C$ and other indicator functions $f:\mathcal{A}\to\{0,1\}$ can and will be also notate the set they indicate (e.g., saying $M\subset\mathcal{A}$ is valid).\\
+
+In order to further our discussion of minesweeper logic, it can be useful to introduce some more functions that can be derived from the 3 defined functions (you may have noticed that we already used $K(a)$ in the definition of a board). These are described below.
+\begin{table}[h]
+    \centering
+    \bgroup
+    \def\arraystretch{1.5}
+    \begin{tabular}{|c|c|c|p{17em}|}\hline
+         Function & Signature & Definition & Description \\\hline
+         $U$ & $U:\mathcal{A}\to\{0,1\}$ & $U(a)=1-M(a)-C(a)$ & $U(a)$ indicates if a cell is unknown\\
+         $N^k$ & $N^k:\mathcal{A}\to\{0,1\}$ & $N^k(a)=\begin{cases}1&\text{if $N(a)=k$}\\0&\text{o/w}\end{cases}$ & $N^k$ indicates that a cell has number $k$\\
+         $K$ & $K:\mathcal{A}\to2^{\mathcal{A}}$ & $K(a)=\{b\in\mathbb{Z}^2:|b-a|_{\infty}=1\}$ & $K(a)$ is the set of cells neighboring $a$\\
+         %$K^+$ & $K^+:\mathcal{A}\to2^{\mathcal{A}}$ & $K(a)=\{b\in\mathbb{Z}^2:|b-a|_{\infty}\leq1\}$ & $K^+(a)$ is the set of cells neighboring $a$ including $a$ itself.\\
+         $K_F$ & $K_F:\mathcal{A}\to2^{\mathcal{A}}$ & $K_F(a)=\{b\in K(a):F(a)=1\}$ & $K_F(a)$ is the set of cells neighboring $a$ indicated by function $F$\\
+         $P_F$ & $P_F:\mathcal{A}\to\mathbb{R}$ & $P_F(a)=P(F(a)=1)$ & $P_F(a)$ is the probability that $a$ is indicated by $F$ (Most often as $P_M$)\\\hline
+    \end{tabular}
+    \egroup
+\end{table}
+
+To conclude our discussion of notation, when multiple boards are being discussed, their corresponding components will be notated with the same subscripts and superscripts as the board vairable. For instance, $B_1=(\mathcal{A}_1,n_1,M_1,C_1,N_1)$, $B_k=(\mathcal{A}_k,n_k,M_k,C_k,N_k)$, and $B'=(\mathcal{A}',n',M',C',N')$ are all ways to denote which component comes from which board. In some cases, simply $\mathcal{A}$ is used since comparison between boards over a different set of squares is often not useful.\\
+
+Our construction of a board does not have any restriction on the knowledge of the number $N$ to the set of cleared cells in $C$. This is because in some cases, it is useful to consider the number of neighboring mines outside of cleared cells, and also because it can sometimes be useful to consider a cleared cell as ``don't care" regarding its number. However, in natural play, the number of a cell is known if and only if the cell is on the board and the cell is clear. For this, we'll add an extra modifier onto the definition of a board.
+
+\defn{Natural Board}{\index{Board!natural}
+A minesweeper board is \textbf{natural} if $\forall a\in\mathcal{A}$, $N(a)\in\mathbb{Z}$ if and only if $a\in[0,c)\times[0,r)$ and $C(a)=1$.
+}
+
+Clearing squares functionally increases the size of $C$, and sequences of logic functionally increase the size of $M$. While the knowledge functions may change as actions are performed, the underlying game remains the same. As such, it can be useful to describe relations between boards.
+
+\defn{Board Continuation}{\index{Board!continuation}
+Let $B_1,B_2\in\mathbb{B}$ be two minesweeper boards. We say $B_2$ is a continuation of $B_1$, denoted $B_1\Rightarrow B_2$, if all of the following conditions hold:
+\begin{itemize}
+    \item $\mathcal{A}_1=\mathcal{A}_2$ and $n_1=n_2$: same underlying board and number of mines
+    \item $\forall a\in\mathbb{Z}^2$, $M_1(a)\leq M_2(a)$ and $C_1(a)\leq C_2(a)$: $B_2$ has at least the mine state of $B_1$
+    \item $\forall a\in\mathcal{A}_1$ such that $N_1(a)\in\mathbb{Z}$, $C_1(a)N_1(a)=C_1(a)N_2(a)$: The known numbers in $B_1$ are in $B_2$
+\end{itemize}
+}
+
+Put in English, $B_1\Rightarrow B_2$ means that the board state of $B_2$ can possibly be the result of playing $B_1$. If $B_1\Rightarrow B_2$, then $B_2$ must at least have as much information as $B_1$. Now let's define the win condition for minesweeper.
+
+\defn{Board Completion}{\index{Board!complete}
+A minesweeper board is \textbf{complete} if $\forall a\in\mathcal{A}$, $M(a)+C(a)=1-U(a)=1$.
+}
+
+A board is complete if the contents of all the squares are known (full knowledge set). Under these definition, it should be clear that the playing minesweeper is equivalent to finding a sequence of boards $B_1,B_2,\dots,B_n$ such that for all $i<n$, $B_i\Rightarrow B_{i+1}$, and $B_n$ is complete.\\
+
+An observant reader may have noticed that it's possible to have a board that is valid under our definition, but is completely unsolvable. This is because the definition can only define validity within each square's immediate neighborhood. However, if a board is complete, validity by our definition holds if and only if the board is legal. As such, we'll say a board $B$ is \textbf{consistent}\footnote{Borrowing terminology from David Beccera's thesis: \\\url{https://minesweepergame.com/math/algorithmic-approaches-to-playing-minesweeper-2015.pdf}} if there exists a complete board $B_n$ such that $B\Rightarrow B_n$. In minesweeper literature, it is well known that the problem of determining if a board is consistent is NP-complete\footnote{A result from Richard Kaye's paper: \url{https://link.springer.com/article/10.1007/BF03025367}}, hence is difficult to determine.\\
+
+Another useful consideration between boards is the addition of knowledge to a board to create a new board. We will call this board augmentation and define it as follows.
+\defn{Board Augmentation}{\index{Board!augmentation}
+Denote the \textbf{augmentation} of board $B$ with knowledge $F\in\{C,M,N^k\}$ over set $A\subset U$ by $B|_{F(A)}$ so that\begin{align*}
+    F_{B|_{F(A)}}(a)=\begin{cases}
+        1 & \text{if $F(a)=1$ or $a\in A$}\\
+        0 & \text{o/w}
+    \end{cases}
+\end{align*}
+and all other knowledge functions are equal to those in $B$.
+}
+Note that $B\Rightarrow B|_{F(A)}$ for all valid $F$ and $A$. For instance, when we are restricted to natural boards, the board $B|_{N^k(\{a\})}$ is simply just the same as $B$ but with $C(a)=1$ and $N(a)=k$.\\
+
+This definition can be useful for describing natural play, where boards are only incrementally augmented with new clears/numbers as play progresses.\\
+
+\iffalse
+Minesweeper boards can often get very complicated very fast as the number of mines increases, so it can be useful to describe an equivalence relation between boards with a different number of mines.
+
+\defn{Board Similarity}{
+Let $B_1$ and $B_2$ be two minesweeper boards. We say $B_1$ is similar to $B_2$ with respect to $A\subset\mathbb{Z}^2$, notated $B_1\sim_{A} B_2$, if for all $a\in A$, the following holds true:
+\begin{itemize}
+    \item $U_1(a)=U_2(a)$
+    \item If $U_1(a)=1$, $P_{M_1}(a)=P_{M_2}(a)$
+\end{itemize}
+}
+We'll say that two boards are similar if they have shared a set of unknown squares, and those unknown square have the same probability of containing a mine. At the risk of shooting myself in the foot by using $P_M$ in the definition, I believe that this is the most intuitive definition of board similarity. It should be clear from this definition, that two boards are similar if and only if their continuation of play is identical. For simplicity in some examples, the set $A$ over which the sets are similar may not be explicitly stated. In which case $B_1\sim B_2$ if and only if $B_1\sim_{U_1}B_2$ and $B_1\sim_{U_2}B_2$.\\
+\fi

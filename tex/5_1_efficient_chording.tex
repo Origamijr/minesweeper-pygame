@@ -1,0 +1,48 @@
+\section{Efficiency Fundamentals}
+
+In order to define efficiency, we first need to define 3BV.
+\defn{3BV}{\index{3BV}
+The \textbf{``Bechtel's Board Benchmark Value" (3BV)} is the minimum amount of clears required to complete a board without flags.
+}
+The 3BV is used as a baseline for measuring efficiency. Note that in the definition, it only considers clears, so the 3BV indicates the minimum amount clicks for a no flag player.\\
+
+The 3BV of a board is pretty easy to compute. To do so, you can employ a greedy approach where you first count all of the openings on a board, then add 1 for every clear square not in an opening. This is illustrated by the following algorithm (Not the fastest way to compute 3BV, but good enough for understanding).\\
+
+\begin{algorithm}[h]
+\caption*{3BV Computation for a Board}
+\begin{algorithmic}
+\Function{\texttt{3BV}}{$B=(\mathcal{A},n,M,C,N)$}
+\State{$3BV\gets0$}
+\State{visited $\gets\emptyset$}
+\For{$a\in\mathcal{A}$}
+    \If{$a\not\in$ visited and $N(a)==0$}
+        \State{BFS/DFS to mark all squares in opening created by $a$ as visited}
+        \State{$3BV\gets3BV+1$}
+    \EndIf
+\EndFor
+\For{$a\in\mathcal{A}$}
+    \If{$a\not\in$ visited}
+        \State{$3BV\gets3BV+1$}
+    \EndIf
+\EndFor
+\Return $3BV$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+Now let's look at efficiency.
+\defn{Efficiency}{\index{Efficiency}
+The \textbf{Efficiency} given by the ratio of the 3BV of a board over the clicks used to complete a board over\begin{align*}
+    \text{Efficiency}=\frac{\text{3BV}}{\text{Clicks Used}}
+\end{align*}
+}
+
+We can see that by this metric, the more clicks you use, the lower your efficiency. Conversely, the less clicks you use, the higher your efficiency.\\
+
+Players can, of course, ``waste clicks" by performing clicks that do literally nothing. While doing ``wasteful clicks" can be occasionally justified in cases where you are preemptively clicking an square without knowing it's value, we are not going to discuss wasted clicks further.\\
+
+\subsubsection*{How do you get more than 100\% efficiency?}
+
+It is also of note that efficiency also takes into account clicks used to flag squares. While flagging squares does not immediately lead to progress, the key is that flagging allows for chording. Recall that a player can chord by clicking on a square numbered with $k$ when there are $k$ flags adjacent to the square to clear all other adjacent unknown squares. Since chording can result in multiple clears, this allows efficiencies higher than 100\% to be achieved. The implication of this is that 3BV does not actually measure the minimum number of clicks required to complete a board, as clicks can actually be minimized through a combination of clears, flags, and chords.\\
+
+TODO complete

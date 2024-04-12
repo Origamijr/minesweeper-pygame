@@ -1,0 +1,207 @@
+\section{Human Heuristics}
+Despite the discussion of probability, humans are not very good at computing with large amounts of information very fast. All of the heuristics in the last section may be useful to a computer, but a human would not be able to use them as they would not even be able to calculate the probability of a mine $P_M(a)$, which is the first step in all of the heuristics. As such, in order for a heuristic to be human friendly, it would need to provide a good estimate for the optimal guessing strategy $\pi^*$ without using exact computations of probabilities $P_F(a)$, and only a simple amount of information around each square.
+
+\subsection{``Simple" Guessing Revisited}\label{sec:simple_guessing}
+The human heuristic I will choose to provide here is admittedly completely arbitrarily constructed. The goal of this heuristic is to imitate the 0th order progress probability heuristic $\pi^{PP_0}$ using an extremely simplified version of $P_M(a)$ and $P_{M|C}(b|a)$ that gets reduced to simple counting over finite spaces. Although numbers are used throughout the formulation of this section, in the end this heuristic can be employed approximately through simple counting and a short flowchart.\\
+
+\subsubsection*{Blind Guessing}
+Under the assumption that all cells contain a mine independent of each other (NOT true), it can be said that each cell has an equal chance of containing a mine. We can make another naive assumption that mine statistics are stationary, or in other words, don't change from the initial board $B_0$. This probability is given by taking the number of mines possible on the board, and dividing by the total number of squares.
+
+\defn{Mine Density as Blind Probability}{
+The \textbf{mine density}\index{Mine density} provides a naive approximation of the probability of a mine
+\begin{align*}
+    P_M(a)\approx\frac{n}{rc}
+\end{align*}
+}
+
+The lower the mine density of a board, the lower the chance blind guessing will lead to death, generally leading to an easier difficulty. The blind probability can be used as a benchmark to measure whether or not a certain method of guessing should be employed as opposed to a random guess. We can see that this probability is only dependent on the difficulty or board dimensions.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|c|c|c|c|}\hline
+        Difficulty & n & rc & Blind Probability\\\hline
+        Beginner\footnote{Some versions have a $9\times9$ beginner board} & 10 & $8\times8=64$ & $\frac{10}{64}\approx\mathbf{0.156}$ \\ % TODO fix footnote
+        Intermediate & 40 & $16\times16=256$ & $\frac{40}{256}\approx\mathbf{0.156}$\\
+        Expert & 99 & $16\times30=480$ & $\frac{99}{480}\approx\mathbf{0.206}$\\\hline
+    \end{tabular}
+    \caption{Blind Probabilities by Difficulty}
+    \label{tab:blind-probabilities}
+\end{table}
+
+
+\subsubsection*{Simple Guessing with Numbered Squares}
+Blind guessing can be improved if some information is known. In most cases, the information we'll deal with for a given square are the immediately adjacent numbers. In the case that multiple numbers are adjacent to a cell, it will be safer to assume that it is the riskiest probability.\\
+
+\defn{Simple Single Number Probability (SSNP)}{
+A naive approximation of the probability of a mine on a square adjacent to number squares is given by
+\begin{align*}
+    P_M(a)\approx\underset{b\in K(a)}{\text{max}}\frac{N(b)-\sum_{c\in K(b)}M(c)}{\sum_{c\in K(b)}U(c)}
+\end{align*}
+}
+
+The SSNP of a mine is simply the max of the local mine probabilities of the neighboring cells. Although this approximation is still inacurate, it is still relatively easy to guess the value of in less than a second.\\
+
+\eg{Example 4.1: Computing SSNP}{
+\begin{center}
+    \begin{minipage}{0.3\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellzero \& \celldc \& \cellunk \& \celldc \& \cellunk \\
+        \cellzero \& \cellone \& \cellunk \& \cellthree \& \cellunk \\
+        \celldc \& \cellthree \& \cellmsm{\LARGE $a$}{unknown} \& \cellunk \& \cellunk \\
+        \cellunk \& \cellflag \& \cellunk \& \cellunk \& \cellunk \\
+    \end{minesweeperboard}}\end{minipage}
+\end{center}
+Look at the MSMs of the adjacent numbers
+\begin{center}
+    \begin{minipage}{0.3\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellzero \& \celldc \& \cellmsm{$A_1$}{possible1} \& \celldc \& \cellunk \\
+        \cellzero \& \cellone \& \cellmsm{$A_1$}{possible1} \& \cellthree \& \cellunk \\
+        \celldc \& \cellthree \& \cellmsm{$A_1$}{possible1} \& \cellunk \& \cellunk \\
+        \cellunk \& \cellflag \& \cellunk \& \cellunk \& \cellunk \\
+    \end{minesweeperboard}}\begin{align*}
+        \frac{1-0}{3}=\frac{1}{3}
+    \end{align*}\end{minipage}
+    \begin{minipage}{0.3\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellzero \& \celldc \& \cellunk \& \celldc \& \cellunk \\
+        \cellzero \& \cellone \& \cellmsm{$B_2$}{possible2} \& \cellthree \& \cellunk \\
+        \celldc \& \cellthree \& \cellmsm{$B_2$}{possible2} \& \cellunk \& \cellunk \\
+        \cellmsm{$B_2$}{possible2} \& \cellflag \& \cellmsm{$B_2$}{possible2} \& \cellunk \& \cellunk \\
+    \end{minesweeperboard}}\begin{align*}
+        \frac{3-1}{4}=\frac{1}{2}
+    \end{align*}\end{minipage}
+    \begin{minipage}{0.3\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellzero \& \celldc \& \cellmsm{$C_3$}{possible3} \& \celldc \& \cellmsm{$C_3$}{possible3} \\
+        \cellzero \& \cellone \& \cellmsm{$C_3$}{possible3} \& \cellthree \& \cellmsm{$C_3$}{possible3} \\
+        \celldc \& \cellthree \& \cellmsm{$C_3$}{possible3} \& \cellmsm{$C_3$}{possible3} \& \cellmsm{$C_3$}{possible3}\\
+        \cellunk \& \cellflag \& \cellunk \& \cellunk \& \cellunk \\
+    \end{minesweeperboard}}\begin{align*}
+        \frac{3-0}{7}=\frac{3}{7}
+    \end{align*}\end{minipage}
+\end{center}
+So $P_M(a)\approx\frac{1}{2}$
+}
+
+\begin{table}[h]
+    \centering
+    \bgroup
+    \def\arraystretch{1.5}
+    \begin{tabular}{|c|c|c|c|c|c|c|c|c|}\hline
+        & & \multicolumn{7}{c|}{\# of unknown squares adjacent to cell (MSM size)}\\
+         & & 2 & 3 & 4 & 5 & 6 & 7 & 8\\\hline
+        \parbox[t]{2mm}{\multirow{3}{*}{\rotatebox[origin=c]{90}{mine count}}}& 1 & 0.5 & 0.333 & \textbf{0.25} & \textbf{0.2} & \textbf{0.167} & \textbf{0.143} & \textbf{0.125}\\
+        & 2 & & 0.667 & 0.5 & 0.4 & 0.333 & 0.28 & \textbf{0.25}\\
+        & 3 & & & 0.75 & 0.6 & 0.5 & 0.429 & 0.375\\\hline
+    \end{tabular}
+    \egroup
+    \caption{Simple Single Number Probability}
+    \label{tab:simple-single-number-prob}
+\end{table}
+
+Table \ref{tab:simple-single-number-prob} shows the simple single number probabilities for up to an effective mine count of 3. It should be notated that as the effective mine count increases, the probability of a mine via this probability significantly increases. Since the mine density of a board is often between 0.15 and 0.25, basing guesses on the simple single number probability is often only a good idea if the effective mine count is 1, or very rarely 2.\\
+
+\subsubsection*{Evaluating Guesses with Approximate Immediate Progress}
+Admittedly, our estimation of probability sort of sucks, but it is the closest estimate I could think of requiring little to no computation, as all the ratios are small and easy to see at a glance. As such, I propose adding in a quick approximation of progress to help correct for the poor probability calculation. Assuming we have an approximation of progress, we can then compute an approximate score for each square.
+
+\defn{Guessing Score}{
+The \textbf{Guessing Score (GS)} of a square $a\in U$ is given by
+\begin{align*}
+    GS(a)=(1-P_M(a))\cdot P_{progress}(a)
+\end{align*}
+such that our strategy becomes\begin{align*}
+    \pi(B)=\argmax_{a\in U}GS(a)
+\end{align*}
+}
+
+Although a well-practiced player should be able to immediately notice where a square leads to progress through pattern recognition, I will assume that a player has not developed this intuition. Instead, I will approximate progress by counting the number of \textbf{completely unknown squares} adjacent to an unknown square. We'll say a square is completely unknown if it is not adjacent to any numbers.
+
+\defn{Progress Approximation: No New Mines}{
+Define indicator $X(a)=1$ if and only if $\sum_{b\in K(a)}C(b)=0$, indicating that the cell has no cleared neighbors. We'll say $X(a)$ indicates that $a$ is \textbf{completely unknown}
+\begin{align*}
+    P_{progress}(a)\approx P(\sum_{b\in K_X(a)}M(b)=0)\approx\left(1-\frac{n}{rc}\right)^{\sum_{b\in K(a)}X(b)}
+\end{align*}
+}
+
+This heuristic essentially computes the likeliness that there are no mines adjacent to the cell you want to guess, except for the mines you already know about. If this is the case, the guess will usually lead to progress as those completely unknown squares will usually not contain mines.\\
+
+The downside of this heuristic however, is that all of the numbered square's unknown (MSM) squares must also be adjacent to the square being guessed in order to be valid. Despite this, there will normally exist guessable squares where this is valid.\\
+
+% TODO show graphic on valid and invalid cases
+
+Under the naive premise mine density is fixed, this heuristic only depends on the number of neighboring unknown cells. Table \ref{tab:near_num_gs} gives the guessing score if the cell being guessed is a completely unknown square.\\
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|r|c|c|c|c|}\hline
+        Difficulty & $\sum_{b\in K(a)}X(b)$ & $P_M(a)$ & $P_{progress}(a)$ & $GS(a)$\\\hline
+        \multirow{6}{*}{Beginner/Intermediate} & 1 & \multirow{6}{*}{0.156} & 0.844 & \textbf{0.712}\\
+        & 2 & & 0.712 & \textbf{0.601}\\
+        & 3 & & 0.601 & \textbf{0.507}\\
+        & 4 & & 0.507 & \textbf{0.428}\\
+        & 5 & & 0.428 & \textbf{0.361}\\
+        & 6 & & 0.361 & 0.304\\\hline
+        \multirow{6}{*}{Expert} & 1 & \multirow{6}{*}{0.206} & 0.794 & \textbf{0.63}\\
+        & 2 & & 0.63 & \textbf{0.5}\\
+        & 3 & & 0.5 & \textbf{0.397}\\
+        & 4 & & 0.397 & \textbf{0.315}\\
+        & 5 & & 0.315 & \textbf{0.25}\\
+        & 6 & & 0.25 & 0.199\\\hline
+    \end{tabular}
+    \caption{Guessing Score for a Completely Unknown Square Near a Numbered Square}
+    \label{tab:near_num_gs}
+\end{table}
+
+In the special case that the guess is especially blind (at least 2 squares away from any numbered squares causing all neighbors to be unknown squares), we can see that there are three main scenarios based on where the square being guessed is on the board: the middle, the edge, and the corner. If a cell is in the middle, it has 8 unknown neighbors. If a cell is on an edge, it has 5 unknown neighbors. Finally if a cell is on an edge, it only has 3 unknown neighbors. From this information, we can compute the GS from blindly guessing for each square based on difficulty (mine density). This is summarized in Table \ref{tab:blind_gs}.\\
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|r|c|c|c|c|}\hline
+        Difficulty & Location & $P_M(a)$ & $P_{progress}(a)$ & $GS(a)$\\\hline
+        \multirow{3}{*}{Beginner/Intermediate} & corner & \multirow{3}{*}{0.156} & 0.601 & \textbf{0.507}\\
+        & edge & & 0.428 & \textbf{0.361}\\
+        & middle & & 0.257 & 0.217\\\hline
+        \multirow{3}{*}{Expert} & corner & \multirow{3}{*}{0.206} & 0.5 & \textbf{0.397}\\
+        & edge & & 0.315 & \textbf{0.25}\\
+        & middle & & 0.158 & 0.125\\\hline
+    \end{tabular}
+    \caption{Guessing Score from a Blind Guess}
+    \label{tab:blind_gs}
+\end{table}
+
+The final case is if the square being guessed is not blind, but rather adjacent to a numbered square. Table \ref{tab:ssnp_gs} summarizes the Guessing Score in these cases. Note that Mine Count (MC) is obtained through mine subtraction of the numbered square, MSM count is the number of squares in common between the numbered square and the cell being guessed, and unknown count is the number of unknown squares exclusively adjacent to the cell being guessed.\\
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|r|c|c|c|c|c|c|c|c|c|c|}\hline
+        & & & \multicolumn{8}{c|}{\# of completely unknown squares adjacent to cell}\\
+        & & & \multicolumn{4}{c|}{Beginner/Intermediate} & \multicolumn{4}{c|}{Expert}\\
+        MC & MSM & $P(M(a)=1)$ & 2 & 3 & 4 & 5 & 2 & 3 & 4 & 5\\\hline
+        \multirow{4}{*}{1} & 2 & 0.5 & 0.356 & 0.3 & 0.253 & 0.214 & \textbf{0.315} & \textbf{0.25} & 0.198 & 0.158\\
+        & 3 & 0.333 & \textbf{0.475} & \textbf{0.4} & 0.338 & 0.285 & \textbf{0.42} & \textbf{0.333} & \textbf{0.265} & 0.21\\
+        & 4 & 0.25 & \textbf{0.534} & \textbf{0.451} & \textbf{0.38} & 0.321 & \textbf{0.473} & \textbf{0.375} & \textbf{0.298} & 0.236\\
+        & 5 & 0.2 & \textbf{0.57} & \textbf{0.481} & \textbf{0.405} & 0.342 & \textbf{0.5} & \textbf{0.4} & \textbf{0.318} & \textbf{0.252}\\\hline
+        \multirow{3}{*}{2} & 4 & 0.5 & 0.356 & 0.3 & 0.253 & 0.214 & \textbf{0.315} & \textbf{0.25} & 0.198 & 0.158\\
+        & 5 & 0.4 & \textbf{0.427} & 0.36 & 0.304 & 0.257 & \textbf{0.378} & \textbf{0.3} & 0.238 & 0.189\\\hline
+    \end{tabular}
+    \caption{Guessing Score from a Guess Near a Numbered Square}
+    \label{tab:ssnp_gs}
+\end{table}
+
+The contour of the guessing score is rather complicated with all of the independent variables involved. However, since generally an edge square is usually available to be guessed, we mostly just need to hone in on the cases where guessing near a number is better than guessing in the corner, and guessing on an edge.\\ 
+
+It can be seen that the only guess guessing near a number is better than guessing in the corner is when both the effective mine count is low across many squares with few unknown adjacent squares. The cases where this is true are relatively uncommon, and would probably be best detected via intuition.\\
+
+More interesting are the squares that are better to guess at than guessing at the edges. Notably, in all difficulties, it is better to guess a 33\% mine probability square along a wall of numbered squares (1MC, 3MSM, 3 unknown) than it is to guess at an edge.\\
+
+To summarize the tables, we can generate a simple guessing priority mentioned earlier in Section 2. Note that the intersection of the guessing score functions are not linear, so very rough approximations are made to succinctly state some priority list.\\
+
+\thm{Guessing Priority via ``Simple" Heuristic}{
+\begin{enumerate}
+    \item Blind Guesses (guesses not adjacent to a numbered square, i.e., completely unknown squares) with less than 3 completely unknown neighbors
+    \item \textbf{Corners}; Blind Guesses with exactly 3 completely unknown neighbors (effective corners)
+    \item Squares near numbers with maximum effective mine count of 1 among $\geq3$ shared squares and $\leq4$ completely unknown neighbors; Blind Guesses with exactly 4 completely unknown neighbors
+    \item \textbf{Edges}; Blind Guesses with exactly 5 completely unknown neighbors (effective edges)
+    \item Low mine probability areas near numbered squares (just use intuition)
+    \item Anything else
+\end{enumerate}
+}
+
+It is of course important to note that this guessing priority entirely depends on the heuristic we defined. The goal of the ``simple" heuristic is to only use local information in the vicinity of the guess, and to make broad probability assumptions to reduce probability calculations to simply counting squares. A different heuristic may lead to a different guessing priority.

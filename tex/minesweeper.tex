@@ -1,0 +1,47 @@
+\usepackage{xcolor,colortbl}
+\usepackage{tikz}
+\usetikzlibrary{matrix}
+\definecolor{color1}{RGB}{56,108,241}
+\definecolor{color2}{RGB}{38,164,66}
+\definecolor{color3}{RGB}{216,56,56}
+\definecolor{color4}{RGB}{149,52,200}
+\definecolor{color5}{RGB}{122,43,26}
+\definecolor{color6}{RGB}{42,194,189}
+\definecolor{color7}{RGB}{126,126,126}
+\definecolor{color8}{RGB}{35,35,35}
+\definecolor{unknown}{RGB}{255,255,255}
+\definecolor{uncovered}{RGB}{198,198,198}
+\definecolor{possible1}{RGB}{218,218,188}
+\definecolor{possible2}{RGB}{218,188,218}
+\definecolor{possible3}{RGB}{188,218,218}
+
+\newcommand{\cellflex}[2]{\node[fill=#2,minimum width=1cm,minimum height=1cm,text centered] {#1};}
+\newcommand{\cellflag}{
+\node[fill=unknown,minimum width=1cm,minimum height=1cm] {};
+            \draw[fill=red] (-0.15,0.5)--(0.2,0.35)--(-0.15,0.2)--cycle;
+            \draw[thick] (-0.15,-0.1)--(-0.15,0.5);
+}
+\newcommand{\cellzero}{\node[fill=uncovered,minimum width=1cm,minimum height=1cm,text centered] {};}
+\newcommand{\cellzeromarked}{\node[fill=uncovered,minimum width=1cm,minimum height=1cm,text centered] {\LARGE 0};}
+\newcommand{\cellone}{\node[fill=uncovered,minimum width=1cm,minimum height=1cm,text centered] {\textcolor{color1}{\LARGE \textbf{1}}};}
+\newcommand{\celltwo}{\node[fill=uncovered,minimum width=1cm,minimum height=1cm,text centered] {\textcolor{color2}{\LARGE \textbf{2}}};}
+\newcommand{\cellthree}{\node[fill=uncovered,minimum width=1cm,minimum height=1cm,text centered] {\textcolor{color3}{\LARGE \textbf{3}}};}
+\newcommand{\cellfour}{\node[fill=uncovered,minimum width=1cm,minimum height=1cm,text centered] {\textcolor{color4}{\LARGE \textbf{4}}};}
+\newcommand{\cellfive}{\node[fill=uncovered,minimum width=1cm,minimum height=1cm,text centered] {\textcolor{color5}{\LARGE \textbf{5}}};}
+\newcommand{\cellsix}{\node[fill=uncovered,minimum width=1cm,minimum height=1cm,text centered] {\textcolor{color6}{\LARGE \textbf{6}}};}
+\newcommand{\cellseven}{\node[fill=uncovered,minimum width=1cm,minimum height=1cm,text centered] {\textcolor{color7}{\LARGE \textbf{7}}};}
+\newcommand{\celleight}{\node[fill=uncovered,minimum width=1cm,minimum height=1cm,text centered] {\textcolor{color8}{\LARGE \textbf{8}}};}
+\newcommand{\cellunk}{\node[fill=unknown,minimum width=1cm,minimum height=1cm,text centered] {};}
+\newcommand{\celldc}{\node[fill=uncovered,minimum width=1cm,minimum height=1cm,text centered] {\LARGE$\ast$};}
+\newcommand{\celludc}{\node[fill=unknown,minimum width=1cm,minimum height=1cm,text centered] {\LARGE$\ast$};}
+\newcommand{\cellsafe}{\node[fill=color2,minimum width=1cm,minimum height=1cm,text centered] {};}
+\newcommand{\cellmine}{\node[fill=color3,minimum width=1cm,minimum height=1cm,text centered] {};}
+\newcommand{\cellmsm}[2]{\node[fill=#2,minimum width=1cm,minimum height=1cm,text centered] {\LARGE \textbf{#1}};}
+\newcommand{\cellvar}[1]{\node[fill=uncovered,minimum width=1cm,minimum height=1cm,text centered] {\LARGE \textbf{#1}};}
+\newcommand{\celllabel}[1]{\node[fill=unknown,minimum width=1cm,minimum height=1cm,text centered] {\LARGE $#1$};}
+
+\NewDocumentEnvironment{minesweeperboard}{b}{%
+    \begin{tikzpicture}%
+    \matrix [matrix of nodes,anchor=base,text depth=0.3cm,text height=0.7cm,text width=1cm,every node/.style={draw},ampersand replacement=\&]{#1};
+    \end{tikzpicture}%
+}{}

@@ -1,0 +1,16 @@
+\section{Minecounting}
+As a game approaches the end, $\sum_{a\in\mathcal{A}}M(a)$ approaches $n$, making it possible to reason about the location of mines using the number of remaining mines $n-\sum_{a\in\mathcal{A}}M(a)$.\\
+
+In our discussion this far, there has been a subset of $U$ that has been left unadressed.
+\defn{Complement MSM}{
+The \textbf{Complement MSM} $U_C$ of a board is the set 
+\begin{align*}
+    U_C=U\setminus\bigcup_{\alpha}K(\alpha)
+\end{align*}
+where $\alpha\in\mathcal{A}$ such that $N(\alpha)\in\mathbb{Z}$ and $C(\alpha)=1$
+}
+In other words, the complement MSM is the set of cells not inside of an MSM induced by a number. Although I call this set an MSM, the number of mines in the complement MSM for every continuation may differ, i.e., there may not exist a $k$ such that $M(U_C)\mapsto k$. As such, $U_C$ is not a MSM by definition, but it is still the complement of the union of all induced MSMs.\\
+
+However, like a normal MSM, we may find ourselves in the situation where $|U_C|=0$, $M(U_C)\mapsto |U_C|$, $M(U_C)\mapsto 0$. In these cases, some new logical moves can be made. When these logical steps are made, the process is commonly referred to as \textbf{minecounting}.\\
+
+TODO finish

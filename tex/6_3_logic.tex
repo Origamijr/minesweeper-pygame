@@ -1,0 +1,175 @@
+\section{Logical Inference}\index{Inference!algorithms}
+The previous two sections explored algorithms to compute probabilities, but playing minesweeper does not always require probabilities or guess. As we know, there are usually many instances where we know a mine exists with 0 or 1 probability without having to do any complex probability calculations. These instances were discussed deeply in Chapter \ref{sec:ng} in the form of theorems and patterns. Here, we will attempt to discuss how our knowledge of logical play can be used to construct more efficient algorithms for taking risk 0 actions.\\
+
+For this section, the goal is to provide an implementation for a function $\texttt{Infer}$ that takes a board as input and returns two lists. One list contains squares that should be cleared ($P_M(a)=0$) and the other list contains squares that should be flagged ($P_M(a)=1$). In terms of correctness, we won't require $\texttt{Infer}$ to return every square that can be cleared or flagged with certainty, just that the sets it returns are subsets of the correct sets.\\
+
+\subsection{Probability Approach}
+Supposing we have an algorithm to compute the first order safety (i.e., mine probability), logical inference can simply be derived by finding the 0 and 1 probabilities returned by the probability algorithm.
+
+\begin{algorithm}[h]
+\caption*{Determining Logical Inference with Probability Algorithm}
+\begin{algorithmic}
+\Function{\texttt{Infer}}{$B=(\mathcal{A},n,M,C,N)$}
+\State{$P\gets$ \texttt{Probability}$(B)$}
+\State{clear, mine $\gets\emptyset$}
+\For{$a$ in $\mathcal{A}$}
+    \If{$P[a]$ is 0}
+        \State{clear.add($a$)}
+    \ElsIf{$P[a]$ is 1}
+        \State{mine.add($a$)}
+    \EndIf
+\EndFor
+\Return{clear, mine}
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+Of course, the point of this section is that we can probably do better than this approach in terms of runtime, since probability calculation takes exponential time. However, the advantage of the probability approach is that it will always find every probability 0 or 1 square, whereas the other algorithms we introduce we not always return all probability 0 or 1 squares.\\
+
+So although, there isn't much of a point having this algorithm in logical play, we can still consider this as a valid implementation. Programmers who want a good solver, but don't want to implement any other algorithms besides \texttt{Probability}, this is the way to go.\\
+
+\subsection{Pattern Approach}
+
+For people who didn't read earlier sections of this document for some reason, this is the intuitive approach to implementing \texttt{Infer}. When people actually play minesweeper, they apply logic by pattern matching common scenarios.\\
+
+Suppose we have a repository of patterns that can correspond local number configurations to a list of squares that ought to be mined and cleared. We want to know how to apply these patterns to a board.\\
+
+Before looking how to apply each pattern to a board, let's first think about how to reduce the number of patterns we have. We can immediately reduce the number of patterns by a small factor if we notice that the rotations and mirrors of patterns can be eliminated if we rotate and mirror the board instead. TODO example\\
+
+Another way we can reduce our number of patterns is by mine reducing the board first to remove all known mines. This allows us to only consider patterns without mines. TODO example. Since the reduction of a board to a board without mines can be useful in many other cases, the algorithm to do so is shown below.\\
+
+\begin{algorithm}[h]
+\caption*{Mine Reducing a Board}
+\begin{algorithmic}
+\Function{\texttt{Reduce}}{$B=(\mathcal{A},n,M,C,N)$}
+\State{$N'\gets N$}
+\For{$a$ in $M$}
+    \For{$b$ in $K(m)$}
+        \If{$N(b)\in\mathbb{Z}$}
+            $N(b)\gets N(b)-1$
+        \EndIf
+    \EndFor
+\EndFor
+\Return{$B'=(\mathcal{A},n-|M|,\emptyset,C+M,N')$}
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+Now let us figure out how we can use known patterns to determine logic. I believe that an enlightening lens to look at this problem is through the lens of convolutions. Convolutions are a common mathematical operation used in signal processing were a filter is passed over all positions in a signal, and the output is roughly how well a filter matched the signal at that position. We can think of our patterns as filters, and the signal as the board.\\
+
+So how would a convolution of a pattern over a board work? TODO (just check equality)\\
+
+\begin{algorithm}[h]
+\caption*{Determining Logical Inference with Pattern Matching using Convolution Filters}
+\begin{algorithmic}
+\Require{PATTERN is a list of 3-tuples (filter, mines, clears), mines and clears are relative positions with respect to filter}
+\Function{\texttt{Infer}}{$B=(\mathcal{A},n,M,C,N)$}
+\State{$B'\gets$ \texttt{Reduce}$(B)$}
+\State{clear, mine $\gets\emptyset$}
+\For{rotations and mirrors $B''$ of $B'$}
+    \For{$(f,m,c)$ in PATTERNS}
+        \State{$f'\gets$ conv2d$(B'',f)$}
+        \For{$a$ in $\mathcal{A}$}
+            \If{$f'[a]=|f|$}
+                \State{mine.add($a+m$)}
+                \State{clear.add($a+c$)}
+            \EndIf
+        \EndFor
+    \EndFor
+\EndFor
+\Return{clear, mine}
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+TODO. Discuss channel implementation.\\
+
+TODO. Maybe a tie in to how this approach leads into a neural network approach?\\
+
+
+\subsection{MSM Theorems Approach}
+
+TODO. Motivate
+
+\thm{MSM Graph}{
+The \textbf{MSM Graph} $(V,E)$ for a board $B$ is defined by
+\begin{align*}
+    V&\subset\{A\subset U\;|\;\exists k\text{ s.t. }M(A)\mapsto k\}\\
+    E&=\{(A_1,A_2)\in V\times V\;|\;A_1\neq A_2, A_1\cap A_2\neq\emptyset\}
+\end{align*}
+where $V$ is a subset of inferable MSMs, and a pair of MSMs have an edge in $E$ if they intersect.
+}
+
+In particular, there are 4 theorems which are good enough for much of logical inference. In order of decreasing usage, they have been repeated below.
+
+\begin{remark}
+In order of decreasing usage, useful theorems for inference are
+\begin{enumerate}[label=\Alph*)]
+    \item Unknown Number Neighborhood MSM Theorem --- If $N(a)\in\mathbb{Z}$, then $M(K_U(a))\mapsto N(a)-|K_M(a)|$.
+
+    \item MSM Subset Theorem --- Let $A\subset B\subset\mathcal{A}$. If $M(A)\mapsto k_A$ and $M(B)\mapsto k_B$, then $M(B\setminus A)\mapsto k_B-k_A$.
+
+    \item MSM Disjoint-Difference Theorem --- Let $A,B_1,\dots,B_m\subset U$ such that $\forall i,j$ so $i\neq j$, $B_i\cap B_j=\emptyset$. If $M(A)\mapsto k_A$ and $M(B_i)\mapsto k_i$, then we have the following 
+    \begin{enumerate}[label=\arabic*.]
+        \item If $|A\setminus\bigcup_{i=1}^mB_i|=k_A-\sum_{i=1}^mk_i$\begin{itemize}
+            \item $\forall a\in A\setminus\bigcup_{i=1}^mB_i$, $M(\{a\})\mapsto1$
+            \item $\forall b\in(\bigcup_{i=1}^mB_i)\setminus A$, $M(\{b\})\mapsto0$
+        \end{itemize}
+        \item If $|\bigcup_{i=1}^mB_i\setminus A|=\sum_{i=1}^mk_i-k_A$\begin{itemize}
+            \item $\forall a\in A\setminus\bigcup_{i=1}^mB_i$, $M(\{a\})\mapsto0$
+            \item $\forall b\in(\bigcup_{i=1}^mB_i)\setminus A$, $M(\{b\})\mapsto1$
+        \end{itemize}
+    \end{enumerate}
+
+    \item MSM Union-Subset Theorem --- Let $A,B_1,B_2\subset U$ such that $A\subset B_1\cup B_2$. If $M(A)\mapsto k_A$, $M(B_1)\mapsto k_1$, and $M(B_2)\mapsto k_2$, then we have the following \begin{enumerate}[label=\arabic*.]
+        \item If $k_A=k_1+k_2$, then $\forall a\in((B_1\cup B_2)\setminus A)\cup (B_1\cap B_2)$, $M(\{a\})\mapsto 0$
+        \item If $k_A=k_1+k_2-1$, then $\forall a\in(B_1\cap B_2)\setminus A$, $M(\{a\})\mapsto 0$
+    \end{enumerate}
+\end{enumerate}
+\end{remark}
+
+As we saw earlier in Chapter \ref{sec:ng}, A) generates all relevant first order MSMs. B) enables 1-1 patterns and dependency chains. C) result 1 enables 1-2 patterns. C) result 2 enables 2-2-2 corners. D) result 1 enables generalized 1-2-1 and 1-2-2-1 patterns. Finally, D) result 2 enables other less common patterns involving configurations of three 1s. 
+While I listed 4 theorems, it is often sufficient to just implement A), B), and C) result 1 to capture most inferences.\\\\
+
+One may notice that theorems B)-D) are all defined on general sets of MSMs. This would suggest slower than quadratic verification for the hypothesis for each of these algorithms, but as we also saw in Chapter 3, \ref{sec:ng}, these theorems are only relevant when all $B$ MSMs intersect with the $A$ MSM. This is where the MSM Graph comes in. Since first order MSMs from A) are at most of size $3\times 3$, each MSM can only intersect with MSMs with centers within 2 squares, so a total of 25 possible locations. Each location can possibly have $2^8$ different MSM (but in practice it is usually much less. These two consequences allow us to see that there are a finite number of edges (intersections per construction of the MSM graph) for each MSM node. A finite number of edges mean that each of these theorems can be verified in constant time by using the MSM graph.\\
+
+
+TODO complete. Maybe rewrite pseudocode to include more details. very handwaivey atm\\
+
+\begin{algorithm}[h]
+\caption*{Determining Logical Inference with an MSM Graph}
+\begin{algorithmic}
+\Function{\texttt{Infer}}{$B=(\mathcal{A},n,M,C,N)$}
+\State{clear, mine $\gets\emptyset$}
+\State{Graph $\gets$ first order MSMs from A)}
+\Repeat
+    \State{Apply B), C), and D) Theorems to add nodes to Graph}
+\Until{Graph did not change}
+\For{Node in Graph}
+    \If{Node.size == 1}
+        \If{Node.k == 1}
+            \State{mine.append(square in Node)}
+        \EndIf
+        \If{Node.k == 0}
+            \State{clear.append(square in Node)}
+        \EndIf
+    \EndIf
+\EndFor
+\Return{clear, mine}
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Incompleteness of Logical Inference} \index{Inference!incompleteness}
+
+So as we saw in this section, the probability approach is slow, but captures all of the squares that should be cleared and flagged. On the other hand, both the pattern matching approach and the MSM theorem approach I outlined do not necessarily find all the squares that can be cleared or flagged with certainty, but have better polynomial runtime bounds. However, as more patterns or more theorems are considered, their respective return values approach the result of the probability approach. One can then ask, is it possible to have a ``complete" set of patterns or theorems so that our polynomial-time algorithms have the same output as our exponential-time algorithm.\\
+
+Let's consider the pattern matching approach first. It should be clear that it is indeed possible to create a complete set of patterns if the size of the board is known. This is because we can just create a complete dictionary of all the logic deducible steps as patterns. However, it should also be clear that the number of patterns if we do this will grow exponentially as the size of the board increases. As such, the pattern approach can never approach a complete solution while maintaining polynomial time.\\
+
+Now let's consider the MSM theorem approach. Like the pattern approach, we can easily have an exponential number of theorems to have complete logical play, by simply having a theorem for each pattern. We can also easily easily define  theorems that takes exponential time to compute to complete logical play (For instance, $P_M(a)=0\implies P_M(\{a\})\mapsto 0$ takes exponential time to compute, but it along with its counterpart form a finite set of theorems that complete logical play). As such, we want to know if there is a polynomial number of theorems that run in polynomial time that can complete logical inference.\\
+
+As it turns out, nobody knows. A well-known result by Richard Kaye\footnote{\url{https://link.springer.com/article/10.1007/BF03025367}} made back in 1998 was that the minesweeper consistency problem is NP-complete. The consistency problem is simply determining if a given board $B$ is consistent (i.e., continues to a complete board).\\
+
+While this is interesting, it is not immediately useful to us the player, who already knows that the board we are playing is consistent. A more pertinant result from Allan Scott\footnote{\url{https://link.springer.com/article/10.1007/s00283-011-9256-x}} in 2011 is that the minesweeper inference problem is co-NP complete. In math, the minesweeper inference problem is similarly defined where given a board $B$, the task is to provide a square $a\in U$ such that $P_M(a)$ is 0 or 1, or state that no square exists. Evidently, this is a just a version of the function we want to find, \texttt{Infer}. One can see how these two problem formulations reduce to each other easily.\\
+
+Both Kaye and Scott show that the consistency and inference problems are hard by reducing satisfiability (and unsatisfiability) to solving minesweeper through the construction of Boolean circuits in minesweeper. Those interested should check those papers out, but here, we only care about the result. Since the minesweeper inference problem is co-NP complete and we don't yet know if P=NP=co-NP (or even if NP=co-NP), as far as we know there is no polynomial time algorithm that can get the exact same answer as the probability approach to the problem. Although, if you, the reader, do find a polynomial algorithm for \texttt{Infer} with respect to board size, hit me up :)\\

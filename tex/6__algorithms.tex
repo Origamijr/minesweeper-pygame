@@ -1,0 +1,16 @@
+\chapter{Algorithms}\label{sec:algorithms}
+
+There are limits to what humans are able to compute, but for computers, those limits are much higher. Although this document aims to serve as a guide for human play, computer simulations able to compute probabilities described in Section \ref{sec:guessing} may aid us by adding guessing strategies to our repertoire. This section will cover the data structures and algorithms that aid in probability calculation and logical play. These form the building blocks for what one would need to build a minesweeper solver.\\
+
+Now one may ask, ``Why are we discussing computer algorithms in a document for human play?" Well, the answer is three-fold. First, a computer can obviously play minesweeper much better than a human. Although, at the moment, a computer cannot play perfectly, they can closely approximate perfect play. This provides a good benchmark to compare human strategies against. Second, evaluating human play is very difficult without a lot of data. With a computer however, we can simulate human strategies many times to evaluate how good a human strategy is compared to the computer benchmark (although if a large amount of human play data could be obtained, I think some more interesting analysis can be performed). Finally, I have minesweeper code and I wanted to use it, so I'm subjecting my reader to the coding process I used for my simulations.\\
+
+\subsubsection*{Code where?}
+Code here\footnote{https://github.com/Origamijr/minesweeper-pygame}. The repository does not contain code for all the algorithms discussed in this chapter, just the ones I felt like implementing. For obvious reasons, python is not the ideal choice for implementing these algorithms due to algorithm runtimes. However, as I am most familiar with python, I believe that it would be the language that I would be able to keep the code as short as possible while still being somewhat human readable.\\
+
+\input{6_1_mine_probability}
+
+\input{6_2_other_probabilities}
+
+\input{6_3_logic}
+
+\input{6_4_solvers}

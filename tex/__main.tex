@@ -1,0 +1,69 @@
+\documentclass{report}
+\input{_header.tex}
+\input{_math-h}
+\input{minesweeper.tex}
+%\usepackage{tikz-minesweeper}
+\makeindex[columns=3, title=Index]
+
+\title{A Human's Guide to Minesweeper}
+\author{}
+\date{April 2023}
+
+\begin{document}
+
+\maketitle
+\newpage
+
+\input{0__tldr.tex}
+\newpage
+
+\tableofcontents
+\newpage
+
+\input{1__introduction.tex}
+\newpage
+
+\input{2__basics.tex}
+\newpage
+
+\input{3__no_guessing.tex}
+\newpage
+
+\input{4__guessing.tex}
+\newpage
+
+\input{5__efficiency.tex}
+\newpage
+
+\input{6__algorithms}
+\newpage
+
+\input{7__strategy.tex}
+\newpage
+
+\input{8__Conclusion}
+\newpage
+
+\printindex
+\newpage
+
+\section*{TODO}
+\begin{enumerate}
+    \item more/better pictures
+    \item more words in chapter 3
+    \item rewrite section 2 to be more beginner friendly
+    \item more computer simulations for guessing to back strategies to help for writing chapter 7 (may remover chapter 7 until this is done).
+    \item peer review? (idk anyone to review this)
+    \item interesting questions I think fit\begin{itemize}
+        \item What is the actual minimum number of clicks to complete a board
+        \item Investigate pareto optimallity for balancing winrate with the other three objectives (efficiency, speed, and difficulty)
+        \item How does win probability change as a function of size and mine density
+        \item What is the probability of encountering a finite logic pattern not accounted for
+    \end{itemize}
+    \item interesting questions I don't think fit\begin{itemize}
+        \item How does one generate a no guess board
+        \item What is the highest density no guess board
+    \end{itemize}
+\end{enumerate}
+
+\end{document}

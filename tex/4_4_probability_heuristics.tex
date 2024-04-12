@@ -1,0 +1,103 @@
+\section{Heuristics}
+
+As we saw in the previous section, it can be very difficult to determine the best move exactly. However, we can abuse some simplifying assumptions and properties of probability to come up with some approximations for the best guess in any situation.
+
+\subsection{Safety as a Heuristic}
+\subsubsection*{Immediate Safety}
+As we explored at the beginning of last section, the first thought of a heuristic for most people is to select the square with the lowest mine probability $\pi(B)=\arg\min_aP_M(a)$.\\
+
+We can now see that this relates to our optimal guessing strategy by setting the value of $V_{T-1}(B)$ to 1. Plugging this in and simplifying we get\begin{align*}
+    \pi(B)&=\argmax_{a\in U}\sum_{k=0}^8P_{N^k}(a)V_{T-1}\left(B|_{N^k({\{a\}})}\right)=\argmax_{a\in U}\sum_{k=0}^8P_{N^k}(a)=\argmax_{a\in U}P_{C}(a)=\argmin_{a\in U}P_M(a)
+\end{align*}
+
+We can consider this as a myopic view of safety, where we only care about surviving to the next move. Recall $V_{T-1}(B|_{N^k(\{a\})})$ is the expected win probability from continuing on, so setting it to 1 essentially assumes that we don't care if we win after 1-move in.\\
+
+\subsubsection*{n-th Order Safety}
+Based on the previous myopic heuristic, we can attempt to define similar slightly less myopic heuristics. Instead of setting $V_{T-1}(B)$ to 1, set $V_{T-n}(B)$ to 1. We can call this strategy maximizing $n$-th order safety.
+\defn{n-th Order Safety Heuristic}{
+Given board $B$, let $1\leq n<<T=|U|-n+\sum_{a\in\mathcal{A}}M(a)$. The guess given by $n$-th order safety is\begin{align*}
+    \pi^{S_n}(B)&=\argmax_{a\in U}\sum_{k=0}^8P_{N^k}(a)V_{n-1}\left(B|_{N^k({\{a\}})}\right)
+\end{align*}
+where $V_k(B)$, is given recursively by 
+\begin{align*}
+    V_0(B)&=1\\
+    V_k(B)&=\max_a\left\{\sum_{k=0}^8P_{N^k}(a)V_{k-1}\left(B|_{N^k({\{a\}})}\right)\right\}\;\;\;\;\forall k\geq1
+\end{align*}
+}
+\phantom{.}
+
+Again, notice that if $n=1$, then we have the normal immediate safety heuristic (i.e., the first order safety heuristic). Also notice that the maximum value of $\pi^{S_n}(B)$ monotonically decreases to the optimal strategy $\pi^*(B)$ as $n$ approaches $T$.\\
+
+The easiest interpretation of this is minimizing the risk of the next $n$ guesses. One small quirk with this definition, however, is that it does not take account of the progress (existence of squares with mine probability 0) that can result from clearing a square. So it's not the next $n$ guesses in the sense of the way a player would normally consider guesses, who would normally consider guesses to only be taken at times where there exists no squares with 0 mine probability. So if a square always has $n$ squares of progress, it's $n$-th order safety is equivalent to it's first order safety.\\
+
+\subsection{Progress as a Heuristic}
+\subsubsection*{Immediate Progress}
+
+Recall that progress is achieved when knowledge of a square leads to the probability of another square having a mine equalling 0. One can imagine that having more progress per guess is better than having less, as more progress means more information will be gained per clear.\\
+
+With this, we can consider maximizing immediate progress count as a possible heuristic\footnote{I will not be deriving the equations for progress as tbh I haven't spent the time breaking it down into nice explainable steps like the previous safety heuristics. Also these formulations could be slightly wrong. May need help verifying their correctness.}. \begin{align*}
+    \pi(B)&=\argmax_{a\in U}|\{b\in U:P_{M|C}(b|a)P_C(a)=0,\,b\neq a\}|
+\end{align*}
+
+An alternative way to consider progress as a heuristic though is to maximizes the probability of additional progress. \begin{align*}
+    \pi(B)&=\argmax_{a\in U}P(|\{b\in U:P_{M|C}(b|a)P_C(a)=0,\,b\neq a\}|>0)\\
+\end{align*}
+
+It should be noticed that both of these heuristics, like the immediate safety heuristic, are myopic in that they only consider progress on the first step. 
+
+\subsubsection*{n-th Order Progress}
+
+Like with safety, we can consider how we measure progress as we recurse deeper. For higher order progress instead of looking at exact progress amount, we want to look at maximizing the expected progress count. This comes from the marginalization of a clear square over the different number possibilities (recall that $P_C(a)=\sum_{k=0}^8P_{N^k}(a)$). We can then formulate the $n$-th order in a similar form as the $n$-th order safety.
+\defn{n-th Order Progress Count Heuristic}{
+Given board $B$, let $0\leq n<<T=|U|-n+\sum_{a\in\mathcal{A}}M(a)$. The guess given by maximizing $n$-th order progress count is
+\begin{align*}
+    \pi^{PC_0}(B)&=\begin{cases}
+    \argmax_{a\in U}|\{b\in U:P_{M|C}(b|a)P_C(a)=0,\,b\neq a\}| & \text{if $n=0$}\\
+    \argmax_{a\in U}\sum_{k=0}^8P_{N^k}(a)V_{n-1}\left(B|_{N^k({\{a\}})}\right) & \text{if $1\leq n<T$}
+    \end{cases}
+\end{align*}
+where $V_k(B)$, is given recursively by 
+\begin{align*}
+    V_0(B)&=\max_{a\in U}|\{b\in U:P_M(b)=0\}|\\
+    V_k(B)&=1+\max_a\left\{\sum_{k=0}^8P_{N^k}(a)V_{k-1}\left(B|_{N^k({\{a\}})}\right)\right\}\;\;\;\;\forall k\geq1
+\end{align*}
+}
+\phantom{.}
+
+If $n\geq 1$, marginalization occurs, so there is no notion of immediate progress as we had previous with immediate safety. As such, the immediate case is denoted as the 0th order progress count.\\
+
+Note that the $n$-th order progress count is not exactly the expected probability of progress. It would be more accurate to state that the $n$-th order progress count is the expected number of logic deducible moves $n$ steps deep. As games that require no guessing at all are possible, these two values can never be equal until $n$ is sufficiently large.\\
+
+Similar to $n$-th order safety, the maximum value of $\pi^{PC_n}$ monotonically increases. In terms of the optimal strategy, we can notice that the $n$-th order essentially approximates how much of the depth of the probability tree that can be skipped with probability 1. However progress count and safety probability cannot (probably?) be compared directly, as progress count can be any positive number, but safety is a probability in the range 0 to 1, so we cannot (probably) say that $\pi^{PC_n}$ approaches the optimal guess $\pi^*$.\footnote{I am not confident on my equations or conclusions regarding $n$-th order progress count. While I think it is a valid heuristic (in fact, it is used in the paper [\url{https://minesweepergame.com/math/exploring-efficient-strategies-for-minesweeper-2017.pdf}] as the second priority heuristic), I don't have enough mathematical foundation to compare it to other heuristics, comment on it's convergence, or confidently implement it. I just wanted to moreso add this heuristic to the discussion.}\\
+
+On the other hand, we can define the $n$-th order probability of progress similarly. This time, we will say that $n$-th
+\defn{n-th Order Progress Probability Heuristic}{
+Given board $B$, let $0\leq n<<T=|U|-n+\sum_{a\in\mathbb{Z}^2}M(a)$. The guess given by maximizing $n$-th order progress probability is
+\begin{align*}
+    \pi^{PC_0}(B)&=\begin{cases}
+    \argmax_{a\in U}P(|\{b\in U:P_{M|C}(b|a)P_C(a)=0,\,b\neq a\}|>0) & \text{if $n=0$}\\
+    \argmax_{a\in U}\sum_{k=0}^8P_{N^k}(a)V_{n-1}\left(B|_{N^k({\{a\}})}\right) & \text{if $1\leq n<T$}
+    \end{cases}
+\end{align*}
+where $V_k(B)$, is given recursively by 
+\begin{align*}
+    V_0(B)&=\begin{cases}
+        1 & \text{if $\exists a$ such that $P_M(a)=0$}\\
+        0 & \text{o/w}
+    \end{cases}\\
+    V_k(B)&=\max_a\left\{\sum_{k=0}^8P_{N^k}(a)V_{k-1}\left(B|_{N^k({\{a\}})}\right)\right\}\;\;\;\;\forall k\geq1
+\end{align*}
+}
+\phantom{.}
+
+The interpretation of $n$-th order progress probability is the probability of progress after $n$ guesses. Like with $n$-th order progress count, immediate progress probability is denoted by the 0th order progress probability.\\
+
+This is very similar to $n$-th order safety, except instead of myopically terminating probability computation early, probability calculation is terminated with the probability that progress occurs. This has several consequences in terms of convergence to the optimal strategy $\pi^*$. First notice that $V_0(B)$ in the $n$-th order progress probability calculation is at most 1, so $\pi^{PP_n}$ is not worse at approximating to $\pi^*(B)$ than $\pi^{S_n}$. However, a mine probability of 0 at step $n$ implies progress, so $\pi^{S_{n+1}}$ is not worse at approximating to $\pi^*$ than $\pi^{PP_n}$. This leads a monotonic sequence of guessing strategies $\pi^{S_1},\pi^{PP_1},\pi^{S_2},\pi^{PP_2},\dots$ approaching the optimal guessing strategy $\pi^*$. As such, the choice between the $\pi^{S_n}$ and $\pi^{PP_n}$ depends entirely on if it is harder to compute $P_{N^k}(a)$ than $P_M(a)$.
+
+\subsection{Adaptive Heuristics}
+
+Again, as we'll see eventually in Chapter \ref{sec:algorithms}, any probability takes approximately exponential time to compute. So computing the $n$-th order heuristic is very computationally expensive. However, we can use the fact that the probabilities of each iteration monotonically decrease to selectively compute higher orders for some squares and not others.\\
+
+One can start by computing the first order probability heuristic ($\pi^{S_1}$ or $\pi^{PP_1}$) values for each square. Next, select the square(s) with the maximum values (or top-$k$ values within a threshold) and then compute the second order probability heuristic for those squares. If the new values are less than any first order probability heuristic value by some threshold, compute the second order heuristic for those values as well, then discard the rest of the squares as candidate guesses. This process can be continued to higher order probability heuristics, continuing to shrink the search space in each iteration. In the simplest form, one can think of this as using higher order heuristics as tie breakers for lower order heuristics.\\
+
+When shrinking the search space, one can also consider abusing the form of the unknown spaces to refine the search space. One can understand that corners and edges in an unknown region have greater higher order probabilities since they are adjacent to less unknown squares.\\

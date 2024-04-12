@@ -1,0 +1,43 @@
+\section{Guessing Anomalies}
+Now that we have a good understanding of how probability can be computed for a game of minesweeper, we will now see how to apply these probabilities to our gameplay. Before discussing generalized guessing strategies, there are two guessing anomalies that should be addressed.\\
+
+\subsection{50/50s and Forced Guessing}
+Recall that two random variables are independent when we can factor out the joint probability into the marginal probabilities.\begin{align*}
+    P(A,B)=P(A)P(B)
+\end{align*}
+In math, we typically like independent random variables as it makes computations easier. However, as minesweeper players, we dread independence of nonzero or nonunit probabilities.\\
+
+\defn{Forced Guess}{\index{50/50}\index{Forced guess}
+A set of squares $A\subset\mathcal{A}$ is a \textbf{forced guess} if we have that $\forall a\in A$, $P_M(a)\in(0,1)$, and for all $b\in U\setminus A$ and for all indicators functions $F:\mathcal{A}\to\{0,1\}$,\begin{align*}
+    P_{M,F}(a,b)=P_M(a)P_F(b)
+\end{align*}
+}
+Effectively, no additional knowledge of a board will change the probability that a square in a forced guess is a mine. Colloquially, these are called 50/50's since their most common manifestation is in a forced decision with a 50\% chance of losing.\\
+
+While this definition is illustrative of what makes up a forced guess, it is not useful to players as they cannot compute probabilities. As such, it is useful to know a sufficient condition for a set of unknown squares to be a forced guess.
+\begin{proposition}
+A set $A\subset U$ is a forced guess if all of the following hold true\begin{enumerate}
+    \item $\forall a\in A$, $P_M(a)\in(0,1)$: We have to guess the squares in the set
+    \item $\forall b\in U\setminus A$, $A\cap K(b)=\emptyset$: No other unknown squares are adjacent to the set
+    \item $\exists k$ such that $M(A)\mapsto k$: $A$ will always contain the same number of mines
+\end{enumerate}
+\end{proposition}
+
+TODO. examples\\
+
+Since there is nothing that can be done to gain information on a forced guess, it is often recommended for players to always guess on forced guesses before guessing anywhere else. This is because at some point, you will need to guess there anyways, so progressing elsewhere is a waste of time if you were going to lose on a forced guess at the end anyways.\\
+
+TODO. more?\\
+
+\subsection{Dead Squares}
+While the previous section described a class of squares that should always be guessed, let us now consider a class of squares that should never be guessed unless forced to.
+
+\defn{Dead Square}{\index{Dead Square}
+A square $a\in\mathcal{A}$ is a \textbf{dead square} if $P_M(a)>0$ and there exists $k$ such that $P_{N_k}(a)=P_C(a)$.
+}
+
+Essentially a dead square is a square that can only either be a mine, or become uncovered to be a single number\footnote{Got help understanding dead squares from MSCoach, who created their own minesweeper analyzer: \url{https://davidnhill.github.io/JSMinesweeper/}}.\\
+
+TODO. examples and more explanation\\
+
+As opposed to forced guesses, this means that you should never guess on dead square unless all remaining squares are dead squares, since dead squares will either kill you, or lead to no new information. Either situation does not lead to progress.\\

@@ -1,0 +1,78 @@
+\section{Probability}\label{sec:probability}
+
+\subsubsection*{Probability a Square Contains a Mine}
+
+The first part of informed guessing comes from knowing what the probability of any unknown square containing a mine is. Our goal is to define the probability that a square contains a mine given a particular board state.\\
+
+Suppose we have probability space $(\Omega,2^{\Omega},P)$. Recall that if the sample space $\Omega$ is finite and $P$ describes a discrete uniform distribution, the Probability of an event $A\in2^{\Omega}$ is simply the number of samples where A occurs divided by the size of the sample space. 
+\begin{align*}
+    P(A)=\frac{|A|}{|\Omega|}
+\end{align*}
+Let us determine our probability space for our mine probability problem. Suppose our current board state is $B$. The probability space of interest is over the set of complete board states that continue $B$, $\Omega_B=\{B'\in\mathbb{B}|B\Rightarrow B',B'\text{ natural and complete}\}$. Note that the function $M(a)$ is a valid random variable over this space, where the selected board determines which mine function to use.\\
+
+We can then see that our desired probability is $P_M(a)$. Under the definition of random variables and the assumption that all complete boards have equal probability, we get the following formulation.
+\thm{Single Square Mine Probability}{\index{Probability!of a single mine}
+The probability of a square $a\in\mathcal{A}$ containing a mine for board $B$ is given by
+\begin{align*}
+    P_M(a)&=P(M(a)=1)\\
+    &=P(\{B'\in\Omega_B|M_{B'}(a)=1\})\\
+    P_M(a)&=\frac{|\{B'\in\Omega_B|M_{B'}(a)=1\}|}{|\Omega_B|}=\frac{\text{\# of natural complete boards continuing $B$ with mine at $a$}}{\text{\# of natural complete boards continuing $B$}}
+\end{align*}
+}
+This has the simple interpretation of the number of boards completing our current board $B$ with a mine at $a$, divided by the total number of boards that complete our current board.\\
+
+This notion can be extended to any of our other indicator functions. Similarly defined $P_C(a)$ gives the probability that $a$ is clear, and $P_{N^k}(a)$ is the probability that $a$ will have the number $k$. Since a complete board has $M(a)=1-C(a)$ for all $a$, it must also be that $P_C(a)=1-P_M(a)$. It should also be of note that $\sum_{k=0}^8P_{N^k}(a)=P_C(a)$, since a natural board must have a number at every cleared square, and a square cannot have multiple numbers.\\
+
+It is often the case that it is very difficult to compute these counts, and hence very difficult to compute exact probabilities. However, computers can be used to compute this probability exactly. Some methods to compute this probability are explored in Section \ref{sec:algorithms}.\\
+
+An interesting property of the probability $P_M(a)$ is that the sum of all $P_M(a)$ is equal to the number of mines on the board $n$. If $B'\in\Omega_B$, then $B\Rightarrow B'$, meaning all $B'$ have the same number of mines $n$. Also note that for any complete $B'\in\Omega_B$, $\sum_{a\in\mathcal{A}}M_{B'}(a)=n$. Taking the expected value $E[\sum_{a\in\mathbb{Z}^2}M(a)]$
+\begin{align*}
+    \sum_{a\in\mathbb{Z}^2}P_M(a)&=\sum_{a\in\mathbb{Z}^2}(1\cdot P(M(a)=1)+0\cdot P(M(a)=0))\\
+    &=\sum_{a\in\mathbb{Z}^2}E[M(a)]\\
+    &=E\left[\sum_{a\in\mathbb{Z}^2}M(a)\right]\\
+    &=n
+\end{align*}
+
+\subsubsection*{Higher Order Probabilities and Conditional Probability}
+
+Suppose we have a relatively good idea that one square is likely a mine (or not a mine). How does this change our probabilities for other squares? For this, recall the definition of conditional probability and Baye's theorem.
+\begin{align*}
+    P(H|E)=\frac{P(H,E)}{P(E)}=\frac{P(E|H)P(H)}{P(E)}
+\end{align*}
+Given two squares $a_1,a_2\in\mathcal{A}$, we can call $P(M(a_1),M(1_2))=P_{M,M}(a_1,a_2)$ the 2nd order joint mine probability distribution. We can equivalently define any order-$n$ joint mine probability function $P_{M,\dots,M}(a_1,\dots,a_n)$. We can go further and even define any general joint probability $P_{F_1,\dots,F_n}(a_1,\dots,a_n)$ where $F_k$ can be any indicator function over the cells $\mathcal{A}$ like $C$, $M$, or $N_k$. These order-$n$ joint probabilities can be computed analogously to the single square case as follows
+
+\thm{Order-$n$ Joint Probability}{\index{Probability!joint}
+Let $a_1,\dots,a_2\in\mathcal{A}$ and $F_1,\dots,F_n$ be indicator functions over $\mathcal{A}$. Then the order-$n$ joint probability can be computed by
+\begin{align*}
+    P_{F_1,\dots,F_n}(a_1,\dots,a_n)&=\frac{|\{B'\in\Omega_B|(F_1)_{B'}(a_1)=1,\dots,(F_n)_{B'}(a_n)=1\}|}{|\Omega_B|}
+\end{align*}
+}
+where the joint probability over $a_1,\dots,a_n$ is equal to the number of boards completing $B$ that fulfill the indicator function, divided by the number of boards completing $B$. This is again under the assumption that all boards have the same probability of being generated.\\
+
+Returning to our question of the probability of a square being a mine given knowledge of another square, this becomes a simple case of conditional probability.
+\begin{align*}\index{Probability!conditional}
+    P_{M|F}(a_1|a_2)=P(M(a_1)=1|F(a_2)=1)=\frac{P_{M,F}(a_1,a_2)}{P_F(a_2)}=\frac{|\{B'\in\Omega_B|M_{B'}(a_1)=1,F_{B'}(a_2)=1\}|}{|\{B'\in\Omega_B|F_{B'}(a_2)=1\}|}
+\end{align*}
+where $F$ can be $M$, $C$, or any other indicator function. So as we can see, if we have knowledge of $n$ squares, we can compute the probability of $m$ squares if we have the order-$(m+n)$ and order-$n$ joint probability distributions. In our case of a single square predicting another, we need a 2-dimensional joint distribution in addition to the normal single dimensional distribution.\\
+
+One notable conditional distribution to consider is the probability of a number given a square is clear. In our notation, the probability of $a$ containing a number $k$ given we know $a$ is clear is the probability $P_{N^k|C}(a|a)$. In normal play, all cleared squares have a number in a complete board, in which case we have $\sum_{k=0}^8P_{N^k|C}(a|a)=1$.\\
+
+Under this notion, we can define the notion of progress.
+\defn{Progress}{\index{Progress!definition}
+Knowledge of a square $a$ to be indicated by $F$ yields \textbf{progress} for board $B$ if $\exists b\in U$ such that
+\begin{align*}
+    P_{M|F}(b|a)=0
+\end{align*}
+}
+In other words, knowledge of $a$ yields progress if that knowledge allows for the clearing of another square $b$, since clearing a square will yield new knowledge in the form of $N(b)$.\\
+
+\iffalse
+We can further extend this notion of progress to the expected amount of progress given knowledge of a square.
+
+\thm{First Order Expected Progress Given a Clear Square}{
+Let $G_{A,F}=|\{b:P_{M|F}(b|A)=0\}|$ The first order expected progress of a board $B$ given square $a$ is clear is given by
+\begin{align*}
+    G_1(a)=\sum_{k=0}^8P_{N^k}(a)G_{a,N^k}
+\end{align*}
+}
+\fi

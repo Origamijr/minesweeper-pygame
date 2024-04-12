@@ -1,0 +1,42 @@
+\section{Optimal Efficiency - ZiNi}
+
+While it is highly unlikely for a human to complete a board with maximum efficiency, one can wonder what the actual minimum number of clicks to complete a board is. We will see that this number is not as easy to formulate as the 3BV. 
+
+\subsubsection*{Can we just click all the openings?}
+
+Like where one might assume that the safest guess was the optimal guess, one can likely assume that clicking all the openings will minimize the number of clicks (as we did for 3BV). However, consider the following very contrived example on a $7\times7$ board.
+
+\begin{center}
+    \begin{minipage}{0.25\linewidth}\centering\resizebox{1\linewidth}{!}{\begin{minesweeperboard}
+        \cellflag \& \cellflag \& \celltwo \& \cellzero \& \cellone \& \cellflag \& \cellflag\\
+        \cellflag \& \cellflag \& \celltwo \& \cellzero \& \cellone \& \cellthree \& \cellflag\\
+        \celltwo \& \celltwo \& \celltwo \& \cellone \& \cellone \& \cellone \& \cellone\\
+        \cellzero \& \cellzero \& \cellone \& \cellflag \& \cellone \& \cellzero \& \cellzero\\
+        \cellone \& \cellone \& \cellone \& \cellone \& \celltwo \& \celltwo \& \celltwo\\
+        \cellflag \& \cellthree \& \cellone \& \cellzero \& \celltwo \& \cellflag \& \cellflag\\
+        \cellflag \& \cellflag \& \cellone \& \cellzero \& \celltwo \& \cellflag \& \cellflag\\
+    \end{minesweeperboard}}\end{minipage}
+\end{center}
+
+Clicking all of the openings would require 4 clicks, but leave the two 3's uncleared. As such, if we were to just click all of the openings first, we would need 6 clicks minimum to complete the board. However, if we started by flagging the middle then clearing and chording the upper right and lower left square of that flag, we can see that the board can be cleared in 5 clicks.\\
+
+In this scenario, chording proved to possibly increase efficiency even over finding openings directly. This proves to complicate the procedure to determine the maximum efficiency to complete a board.\\
+
+\subsection{Zini Heuristics}
+
+As far as I'm aware the most notable discussion regarding this topic occurred in a forum\footnote{\url{https://minesweepergame.com/forum/viewtopic.php?f=15&t=70}} in 2009. There, Elmar Zimmermann and Christoph Nikolaus proposed ZiNi as the 3BV equivalent for play with flagging.
+
+\defn{ZiNi}{\index{ZiNi!definition}
+The \textbf{ZiNi} is the minimum amount of clicks required to complete a board with flags.
+}
+
+They also acknowledge that the true ZiNi value is very difficult to compute, so they offer some heuristics to estimate the ZiNi. Each heuristic depends on a local score they call the premium.
+
+\defn{ZiNi Premium}{\index{Premium}
+The ZiNi \textbf{Premium} of a square $a$ for a natural complete board $B'$ at step $B$ is given by\begin{align*}
+    \text{premium}(a)=\text{3BV($K^+(a)$)}-N'(a)+|K_M(a)|+C(a)-2
+\end{align*}
+}
+In English, the premium of a square is the amount of useful clears obtained by TODO\\
+
+TODO (Still doing the math. Either a variation of MinSAT, weighted minimum vertex cover, weighted dominant set, or something else. idk. maybe need big brain math/cs person)

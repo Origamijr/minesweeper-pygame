@@ -1,0 +1,21 @@
+\section{Other Probabilities}
+
+As we saw in Section \ref{sec:ssmp_inacc}, using only mine probability to guess is not perfect. However, being the first order safety probability, it's still an ok starting point for guessing. If we want to approach the optimal strategy though, higher order probabilities will need to be computed.\\
+
+\subsection{Managing Solutions}
+
+Last section, we got away with sweeping how solutions are managed under the rug. However, higher order probabilities will require more careful management of solutions to remain efficient. Although many ways to handle solutions result in the same runtime, through personal experience, I found that a poor implementation of solution management is often the runtime bottleneck of any probability calculation. As such, I will suggest a data structure to store solutions.\\
+
+If we go back to the linear algebra formulation in the discussion of the exhaustive, recall that a solution can be represented as a vector of length $|\mathcal{A}|$. As such, it is fitting to store a list of solutions as a matrix where each solution is a row vector. Depending on programming language, efficient operations for matrices may be available (e.g., numpy for python).\\
+
+If a set of solutions is treated as a row matrix, then finding all solutions with a mine at a given square is as simple as splicing the matrix on the rows where the corresponding column is one. Counting the number of mines in a solution is simply summing the columns of the matrix to a single column vector. Determining if a move can be inferred is as simple as summing the rows and checking if a resulting entry in the sum vector is equal to 0 or the number of solutions. With this, I'll leave how one would implement any other operation on a set of solutions up to the imagination of the reader.\\
+
+\subsection{n-th Order Probability}
+
+TODO. This is just a recursive version of the perimeter enumeration approach, but I can probably include a section on the adaptive heuristic.\\
+
+\subsection{Approximate Algorithms}
+
+So computing high order probabilities, is really expensive. Although single mine probability already took exponential time, $n$-th order probability takes, like, super exponential time. Since lower order probabilities are often sufficient for ``good" solvers, I believe it is still valuable to be aware of other approximate algorithms to calculate probability.\\
+
+Since minesweeper is a stochastic decision process, it actually lends itself well to a Monte Carlo Tree Search, where probabilities can be approximated through random sampling. This can allow the higher order calculations go much deeper at the expense of accuracy. As I am relatively unfamiliar with this domain, I'll just mention that some exploration of minesweeper using MCTS has already been done\footnote{Haven't read them thoroughly, but these two papers use MCTS:\url{https://minesweepergame.com/math/consistent-belief-state-estimation-with-application-to-mines-2011.pdf} and \url{https://www.worldscientific.com/doi/abs/10.1142/S0129183120501296?journalCode=ijmpc}}. I'll leave it as an exercise to the reader to ponder on this subject more than I have.\\
