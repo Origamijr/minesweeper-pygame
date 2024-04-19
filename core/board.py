@@ -189,6 +189,9 @@ class Board:
     def get_mines(self):
         return self.M.nonzero()
     
+    def remaining_mines(self):
+        return self.n - self.M.sum()
+    
     def get_neighbor_mines(self, x, y):
         return (self.M * self.neighbor_mask(x, y)).nonzero()
     

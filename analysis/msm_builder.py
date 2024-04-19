@@ -6,6 +6,18 @@ from analysis.msm_graph import MSM, MSM_Graph, MSM_Node
 CKEY = (-1,-1)
 
 def get_msm_graph(B: Board, order=2, reduced_board=False, verbose=0):
+    """
+    Returns the MSM graph of a board after applying basic logic rules if order=2.
+    B - The board to find the MSM graph of
+    order - The order to which the MSM graph should be simplified (1 or 2).
+    reduced_board - Whether or not to return a mineless board
+    verbose - the level of debugging messages to print
+    Returns:
+    B - The board after simplification
+    MSMG - The MSM graph that can be used to enumerate solutions
+    to_clear - set of coordinates determined by second order simplification to clear
+    to_flag - set of coordinates determined by second order simplicifation to contain a mine
+    """
     assert order in [1,2]
 
     # mine reduce the board completely
@@ -30,7 +42,7 @@ def get_msm_graph(B: Board, order=2, reduced_board=False, verbose=0):
     update_board(B, to_clear, to_flag)
     B = B.reduce()
     if len(MSMG[CKEY]) == 0 or (c_bm := MSMG[CKEY][0].bitmap()).sum() == 0:
-        MSMG.remove_node(MSMG[CKEY][0])
+        MSMG.remove_node(MSMG[CKEY][0]) # TODO There is a bug here on expert seed 2560213800
     elif B.n == c_bm.sum() and len(MSMG) == 1:
         to_flag = to_flag.union(set(c_bm.nonzero()))
         for coord in c_bm.nonzero(): 

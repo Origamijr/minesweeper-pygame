@@ -1,6 +1,14 @@
 \section{Mathematical Notation}
 From now on, here be dragons. In order to describe the logic of minesweeper, I will go into a detailed construction of how a board state can be described. The purpose of this notation is two-fold. First, when discussing patterns, it would be ideal to identify them in an orientation independent manner, which this notation will aim to achieve. Second, defining board state in terms of real-valued functions will make discussing probability more concise. As with much of mathematics, formalizing a problem into a usable language is half the battle. For this document, I will adopt similar notation to that use by Philip Crow in ``A Mathematical Introduction to the
-Game of Minesweeper"\footnote{\url{https://minesweepergame.com/math/a-mathematical-introduction-to-the-game-of-minesweeper-1997.pdf}} with some modifications.\\
+Game of Minesweeper"\footnote{\url{https://minesweepergame.com/math/a-mathematical-introduction-to-the-game-of-minesweeper-1997.pdf}} with some modifications.
+
+Minesweeper contains a lot of varients. One can imagine playing minesweeper on different boards like hex grids and 3D grids, or even consider the scenario where a single cell can contain multiple mines. While variations are interesting, there is plenty to explore in the realm of standard minesweeper on a rectangular grid. These definitions can be extended to analyze these varients, but that is not in the scope of this document.
+
+For a rectangular grid, one can describe a single square on the board with its coordinate (we'll arbitrarily say the upper left square has the coordinate 0,0). Supposing that the board has $r$ rows and $c$ columns, then the board can be described as a subset of coordinate integers $\mathcal{A}=[0,c)\times[0,r)\subset\mathbb{Z}^2$.
+
+% TODO figure of the board would help
+
+% TODO motivate describing the mines, clears, and numbers as functions who's domain is A.
 
 \defn{Minesweeper Board}{\index{Board!definition}
 A Minesweeper Board $B$ with is defined as a 5-tuple
@@ -23,9 +31,7 @@ with the following properties:
 We'll call $\mathbb{B}$ the collection of valid boards.
 }
 
-For the remainder of this document, it can be assumed that $\mathcal{A}=[0,c)\times[0,r)\subset\mathbb{Z}^2$. This describes a minesweeper board as a 2 dimensional grid of squares with $r$ rows and $c$ columns. While much of the discussion in this document will also apply to other regions besides $[0,c)\times[0,r)$ (i.e., nonrectangular boards) and sets besides $\mathbb{Z}^2$ (e.g., 3D minesweeper), we'll restrict the discussion to the typically found rectangular grids.\\ 
-
-The board state is described as a set of three functions $M$, $C$, and $N$. $M$ indicates if a cell is known to contain a mine or not (i.e. flagged, or just mentally noted). $C$ indicates if a cell is cleared (i.e. opening or numbered square). $N$ describes the number of mines adjacent to a cell. Note that the value of $N(a)$ is only known when $C(a)=1$, so if $C(a)=0$, we don't know or don't care about the value of $N(a)$. As $M$ and $C$ are indicator functions, we will often refer to their size as the size of the set they indicate. Together, the cells indicated by $M$ and $C$ are known as the knowledge set, since it includes cells we have knowledge of. $M$, $C$ and other indicator functions $f:\mathcal{A}\to\{0,1\}$ can and will be also notate the set they indicate (e.g., saying $M\subset\mathcal{A}$ is valid).\\
+The board state is described as a set of three functions $M$, $C$, and $N$. $M$ indicates if a cell is known to contain a mine or not (i.e. flagged, or just mentally noted). $C$ indicates if a cell is cleared (i.e. opening or numbered square). $N$ describes the number of mines adjacent to a cell. Note that the value of $N(a)$ is only known when $C(a)=1$, so if $C(a)=0$, we don't know or don't care about the value of $N(a)$. As $M$ and $C$ are indicator functions, we will often refer to their size as the size of the set they indicate. Together, the cells indicated by $M$ and $C$ are known as the knowledge set, since it includes cells we have knowledge of. $M$, $C$ and other indicator functions $f:\mathcal{A}\to\{0,1\}$ can and will be also notate the set they indicate (e.g., saying $M\subset\mathcal{A}$ is valid).
 
 In order to further our discussion of minesweeper logic, it can be useful to introduce some more functions that can be derived from the 3 defined functions (you may have noticed that we already used $K(a)$ in the definition of a board). These are described below.
 \begin{table}[h]
@@ -44,7 +50,7 @@ In order to further our discussion of minesweeper logic, it can be useful to int
     \egroup
 \end{table}
 
-To conclude our discussion of notation, when multiple boards are being discussed, their corresponding components will be notated with the same subscripts and superscripts as the board vairable. For instance, $B_1=(\mathcal{A}_1,n_1,M_1,C_1,N_1)$, $B_k=(\mathcal{A}_k,n_k,M_k,C_k,N_k)$, and $B'=(\mathcal{A}',n',M',C',N')$ are all ways to denote which component comes from which board. In some cases, simply $\mathcal{A}$ is used since comparison between boards over a different set of squares is often not useful.\\
+To conclude our discussion of notation, when multiple boards are being discussed, their corresponding components will be notated with the same subscripts and superscripts as the board vairable. For instance, $B_1=(\mathcal{A}_1,n_1,M_1,C_1,N_1)$, $B_k=(\mathcal{A}_k,n_k,M_k,C_k,N_k)$, and $B'=(\mathcal{A}',n',M',C',N')$ are all ways to denote which component comes from which board. In some cases, simply $\mathcal{A}$ is used since comparison between boards over a different set of squares is often not useful.
 
 Our construction of a board does not have any restriction on the knowledge of the number $N$ to the set of cleared cells in $C$. This is because in some cases, it is useful to consider the number of neighboring mines outside of cleared cells, and also because it can sometimes be useful to consider a cleared cell as ``don't care" regarding its number. However, in natural play, the number of a cell is known if and only if the cell is on the board and the cell is clear. For this, we'll add an extra modifier onto the definition of a board.
 
@@ -69,9 +75,9 @@ Put in English, $B_1\Rightarrow B_2$ means that the board state of $B_2$ can pos
 A minesweeper board is \textbf{complete} if $\forall a\in\mathcal{A}$, $M(a)+C(a)=1-U(a)=1$.
 }
 
-A board is complete if the contents of all the squares are known (full knowledge set). Under these definition, it should be clear that the playing minesweeper is equivalent to finding a sequence of boards $B_1,B_2,\dots,B_n$ such that for all $i<n$, $B_i\Rightarrow B_{i+1}$, and $B_n$ is complete.\\
+A board is complete if the contents of all the squares are known (full knowledge set). Under these definition, it should be clear that the playing minesweeper is equivalent to finding a sequence of boards $B_1,B_2,\dots,B_n$ such that for all $i<n$, $B_i\Rightarrow B_{i+1}$, and $B_n$ is complete.
 
-An observant reader may have noticed that it's possible to have a board that is valid under our definition, but is completely unsolvable. This is because the definition can only define validity within each square's immediate neighborhood. However, if a board is complete, validity by our definition holds if and only if the board is legal. As such, we'll say a board $B$ is \textbf{consistent}\footnote{Borrowing terminology from David Beccera's thesis: \\\url{https://minesweepergame.com/math/algorithmic-approaches-to-playing-minesweeper-2015.pdf}} if there exists a complete board $B_n$ such that $B\Rightarrow B_n$. In minesweeper literature, it is well known that the problem of determining if a board is consistent is NP-complete\footnote{A result from Richard Kaye's paper: \url{https://link.springer.com/article/10.1007/BF03025367}}, hence is difficult to determine.\\
+An observant reader may have noticed that it's possible to have a board that is valid under our definition, but is completely unsolvable. This is because the definition can only define validity within each square's immediate neighborhood. However, if a board is complete, validity by our definition holds if and only if the board is legal. As such, we'll say a board $B$ is \textbf{consistent}\footnote{Borrowing terminology from David Beccera's thesis: \\\url{https://minesweepergame.com/math/algorithmic-approaches-to-playing-minesweeper-2015.pdf}} if there exists a complete board $B_n$ such that $B\Rightarrow B_n$. In minesweeper literature, it is well known that the problem of determining if a board is consistent is NP-complete\footnote{A result from Richard Kaye's paper: \url{https://link.springer.com/article/10.1007/BF03025367}}, hence is difficult to determine.
 
 Another useful consideration between boards is the addition of knowledge to a board to create a new board. We will call this board augmentation and define it as follows.
 \defn{Board Augmentation}{\index{Board!augmentation}
@@ -83,9 +89,9 @@ Denote the \textbf{augmentation} of board $B$ with knowledge $F\in\{C,M,N^k\}$ o
 \end{align*}
 and all other knowledge functions are equal to those in $B$.
 }
-Note that $B\Rightarrow B|_{F(A)}$ for all valid $F$ and $A$. For instance, when we are restricted to natural boards, the board $B|_{N^k(\{a\})}$ is simply just the same as $B$ but with $C(a)=1$ and $N(a)=k$.\\
+Note that $B\Rightarrow B|_{F(A)}$ for all valid $F$ and $A$. For instance, when we are restricted to natural boards, the board $B|_{N^k(\{a\})}$ is simply just the same as $B$ but with $C(a)=1$ and $N(a)=k$.
 
-This definition can be useful for describing natural play, where boards are only incrementally augmented with new clears/numbers as play progresses.\\
+This definition can be useful for describing natural play, where boards are only incrementally augmented with new clears/numbers as play progresses.
 
 \iffalse
 Minesweeper boards can often get very complicated very fast as the number of mines increases, so it can be useful to describe an equivalence relation between boards with a different number of mines.

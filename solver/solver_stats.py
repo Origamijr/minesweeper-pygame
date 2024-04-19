@@ -2,8 +2,9 @@ from core.board import Board
 import time
 
 class SolverStats:
-    def __init__(self, board: Board, player=True):
-        self.board = board
+    def __init__(self, board_k: Board, board_t:Board, player=True):
+        self.board_k = board_k
+        self.board_t = board_t
         self.player = player
         self.clicks = 0
         self.uncaught_logic = 0
@@ -42,12 +43,15 @@ class SolverStats:
     def apply_risk(self, risk):
         self.risk = 1 - (1 - self.risk) * (1 - risk)
 
-    def get_3bv(self):
-        return self.board.get_3bv()
+    def get_3bv(self, knowledge_only=False):
+        if knowledge_only:
+            return self.board_k.get_3bv()
+        else:
+            return self.board_t.get_3bv()
     
     def get_3bvs(self):
         assert self.time > 0
-        return self.board.get_3bv() / self.time
+        return self.get_3bv(knowledge_only=True) / self.time
 
     def get_efficiency(self):
-        return self.board.get_3bv() / self.clicks
+        return self.get_3bv(knowledge_only=True) / self.clicks

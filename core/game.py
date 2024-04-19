@@ -106,7 +106,7 @@ class Board_UI(pg.sprite.Group):
         if win or lose:
             pg.time.set_timer(pg.USEREVENT, 0)
             mines = self.t_board.get_mines()
-            to_clear = self.marked if win else mines.union(self.marked)
+            to_clear = self.marked if win else set(mines) | self.marked
             # Mark false flags
             for i, j in to_clear:
                 if (i, j) != cell_coords:

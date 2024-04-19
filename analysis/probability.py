@@ -1,4 +1,5 @@
 from analysis.msm_builder import get_msm_graph, CKEY
+from analysis.msm_graph import MSM_Graph
 from analysis.msm_analysis import find_solutions, seperate_connected_msm_components, try_step_msm
 from analysis.solution_set import SolutionSet
 from analysis.utils import merge_disjoint_counts
@@ -19,16 +20,11 @@ def calculate_probabilities(B: Board, stats:SolverStats=None, verbose=0):
     # Seperate into connected components for speed (since counts of connected components are independent)
     components = seperate_connected_msm_components(msm)
     solutions:list[SolutionSet] = []
-    bitmaps:list[Bitmap] = []
     counts = []
-    c_size = 0
-    total_counts = dict()
     # Find the counts for each connected component
     for component in components:
-        bitmaps.append(component.bitmap())
         if CKEY in component and len(component[CKEY]) > 0: 
             # If complement msm, ignore count (since don't know number of mines yet)
-            c_size = int(component[CKEY][0].size())
             solutions.append(None)
             counts.append(None)
         else:
@@ -37,36 +33,64 @@ def calculate_probabilities(B: Board, stats:SolverStats=None, verbose=0):
             if verbose == 3: print(f'number of solutions for component\n{component.bitmap()}: {counts[-1]}')
             if verbose >= 4: print(f'solutions for component\n{component.bitmap()}: {solutions[-1]}')
 
-            # merge counts into a larger pool for computing total number of continuations
-            total_counts = merge_disjoint_counts(total_counts, counts[-1])
+    probabilities = compute_probability_from_solution_counts(components, solutions, counts, B.remaining_mines(), verbose=verbose)
 
-    if verbose >= 3: print(f'number of total solutions: {total_counts}')
-    if verbose >= 3: print(f'number of mines to place: {num_mines}')
+    # If cell was marked to be flagged, its probability is 1
+    for coord in B.get_mines():
+        probabilities[coord] = 1
+    
+    assert abs(torch.sum(probabilities)-B.n) < 1e-3, f'Error in probability calculation {torch.sum(probabilities)-B.n}\n{probabilities}'
+    return probabilities
+
+
+def compute_possibilities(counts, remaining_mines, complement_size):
+    # merge counts into a larger pool for computing total number of continuations (faster than merging solutions)
+    total_counts = {}
+    for count in counts:
+        if count is None: continue
+        total_counts = merge_disjoint_counts(total_counts, count)
+
     total_possibilities = 0
-    c_possiblities = 0
+    complement_possibilities = 0
     if len(total_counts) == 0:
-        total_possibilities = comb(c_size, num_mines)
-        c_possiblities = comb(c_size - 1, num_mines - 1)
+        total_possibilities = comb(complement_size, remaining_mines)
+        complement_possibilities = comb(complement_size - 1, remaining_mines - 1)
     # Iterate over counts to find the total number of valid continuations
-    for n, count in total_counts.items():
-        if num_mines < n: continue # Skip if count requires more mines than what's available
-        if n + c_size < num_mines: continue # Skip if not enough mines to solve
-        if c_size == 0:
+    for used_mines, count in total_counts.items():
+        if remaining_mines < used_mines: continue # Skip if count requires more mines than what's available
+        if used_mines + complement_size < remaining_mines: continue # Skip if not enough mines to solve
+        if complement_size == 0:
             # If there are no complement items, just add the count
             total_possibilities += count
             continue
-        total_possibilities += count * comb(c_size, num_mines - n)
+        total_possibilities += count * comb(complement_size, remaining_mines - used_mines)
         # If there are mines remaining for the complement space, count the number of solutions for complement space
-        if num_mines - 1 < n or c_size == 0: continue
-        c_possiblities += count * comb(c_size - 1, num_mines - n - 1)
-    if verbose >= 3: print(f'total possibilities: {total_possibilities}')
-    c_prob = c_possiblities / total_possibilities # probability of mine in complement region
+        if remaining_mines - 1 < used_mines or complement_size <= 0: continue
+        complement_possibilities += count * comb(complement_size - 1, remaining_mines - used_mines - 1)
 
-    # Compute probability for each unknown square
-    probabilities = torch.zeros(B.rows, B.cols)
-    for i, (bitmap, component, solution) in enumerate(zip(bitmaps, components, solutions)):
+    return total_counts, total_possibilities, complement_possibilities
+
+
+def compute_probability_from_solution_counts(
+        components:list[MSM_Graph], # List of disjoint solvable regions in the board
+        solutions:list[SolutionSet], # List of solutions corresponding to the components
+        counts:list[dict[int,int]], # List of the number of solutions for each corresponding solution
+        remaining_mines, # number of remaining mines
+        return_possibilities=False,
+        verbose=0
+        ):
+    
+    c_size = [c[CKEY][0].size() for c in components if CKEY in c][0] if any(CKEY in c and len(c[CKEY])>0 for c in components) else 0
+    total_counts, total_possibilities, c_possibilities = compute_possibilities(counts, remaining_mines, c_size)
+    if verbose >= 3: print(f'number of total solutions: {total_counts}')
+    if verbose >= 3: print(f'number of mines to place: {remaining_mines}')
+    if verbose >= 3: print(f'total possibilities: {total_possibilities}')
+    c_prob = c_possibilities / total_possibilities # probability of mine in complement region
+
+    probabilities = torch.zeros(*components[0].bitmap().shape)
+    for i, (component, solution) in enumerate(zip(components, solutions)):
         # Iterate over the 1 bits in the merged MSM (i.e all the possible locations for the count group)
-        coords = bitmap.nonzero()
+        coords = component.bitmap().nonzero()
         for coord in coords:
             #Skip complement set
             if solution is None:
@@ -91,17 +115,104 @@ def calculate_probabilities(B: Board, stats:SolverStats=None, verbose=0):
             # Find the number of solutions with the mine given the total mine count
             possibilities = 0
             for n, count in cond_counts.items():
-                if num_mines < n: continue
-                if n + c_size < num_mines: continue
-                possibilities += count * max(1, comb(c_size, num_mines - n))
+                if remaining_mines < n: continue
+                if n + c_size < remaining_mines: continue
+                possibilities += count * max(1, comb(c_size, remaining_mines - n))
             if verbose >= 3: print(f'possibilities if mine at {coord}: {possibilities}')
             # Divide to get the probability
             probabilities[coord] = possibilities / total_possibilities
 
-    # If cell was marked to be flagged, its probability is 1
-    for coord in B.get_mines():
-        probabilities[coord] = 1
-    
-    assert abs(torch.sum(probabilities)-B.n) < 1e-3, f'Error in probability calculation {torch.sum(probabilities)-B.n}\n{probabilities}'
+    if return_possibilities:
+        return probabilities, total_possibilities
     return probabilities
 
+
+# ===== Safety Functions =====
+
+
+def _safety_helper(B:Board, components:list[MSM_Graph], solutions:list[SolutionSet], progress_coords, stats:SolverStats=None, verbose=0):
+    if B.unknown().sum() - B.remaining_mines() - len(progress_coords) == 0:
+        return torch.ones(B.shape)
+    
+    # Get components, solutions, and counts, recomputing if needs to 
+    components_t, solutions_t, counts_t = [], [], []
+    for component, solution in zip(components, solutions):
+        comps = seperate_connected_msm_components(component)
+        for comp in comps:
+            components_t.append(comp)
+            if CKEY in comp:
+                solutions_t.append(None)
+                counts_t.append(None)
+            else:
+                if solution is None:
+                    solutions_t.append(find_solutions(comp, stats=stats, verbose=verbose))
+                elif solution.bitmap < comp.bitmap():
+                    solutions_t.append(solution.clone().shrink_bitmap(comp.bitmap()))
+                else:
+                    solutions_t.append(solution.clone())
+                counts_t.append(solutions_t[-1].get_solution_counts())
+    components, solutions, counts = components_t, solutions_t, counts_t
+
+    # TODO, finish
+    pass
+
+def _safety_at_coord_helper(B:Board, coord, components:list[MSM_Graph], solutions:list[SolutionSet], verbose=0):
+    # Figure out which solution sets get affected by the existance of a number at coord
+    c_size = [c[0].size() for c in components if CKEY in c][0] if any(CKEY in c for c in components) else 0
+    coord_neigh = B.neighbor_mask(*coord)
+    affected_comps = []
+    curr_comp_ind = None
+    new_region = Bitmap(*B.shape)
+    for i, component in enumerate(components):
+        overlap = component.bitmap() * coord_neigh
+        if overlap.any():
+            if CKEY in component and len(component[CKEY]) > 0: 
+                new_region = overlap
+            elif component.bitmap()[coord] == 0:
+                affected_comps.append(i)
+        if component.bitmap()[coord] == 1: curr_comp_ind = i
+    
+    # Create a larger solution set including the neighborhood
+    coord_in_complement = CKEY in components[curr_comp_ind] and len(components[curr_comp_ind][CKEY]) > 0
+    if coord_in_complement: 
+        curr_solns = SolutionSet.powerset(new_region)
+    else:
+        curr_solns:SolutionSet = solutions[curr_comp_ind].clone()
+
+    if new_region.sum() != 0:
+        curr_solns.add_region(new_region)
+    for comp_ind in affected_comps:
+        curr_solns = SolutionSet.combine_solution_sets(curr_solns, solutions[comp_ind])
+
+    # Compute solution counts for each number
+    num_counts = curr_solns.get_solution_counts_for_numbers(coord, clear_coords=[coord])
+    if verbose >= 4: print(f"Given {coord} clear, {num_counts}: {curr_solns}")
+
+    # Compute recursive safety for each possible number
+    safety = 0
+    for num, cond_counts in num_counts.items():
+        if verbose >= 3: print(f"Trying {num} at {coord} with counts {cond_counts}")
+
+        # merge counts
+        for i, soln in enumerate(solutions):
+            count = soln.get_solution_counts()
+            if i == curr_comp_ind or i in affected_comps or count is None: continue
+            cond_counts = merge_disjoint_counts(cond_counts, count)
+        
+        possibilities = 0
+        for n, count in cond_counts.items():
+            if B.remaining_mines() < n: continue
+            if n + c_size - new_region.sum() < B.remaining_mines(): continue
+            possibilities += count * max(1, comb(c_size - new_region.sum() - (1 if coord_in_complement else 0), num_mines - n))
+        if possibilities == 0: continue
+        # Divide to get the probability of the number
+        num_prob = possibilities / total_possibilities
+
+        B_aug = B.reduce()
+        B_aug.set_clear(coord[0], coord[1], num)
+        # TODO add trivial first oder msm induced by number, and apply second order logic to components
+        recursive_safety = calculate_safety(B_aug, order-1, prune_threshold=prune_threshold, brute_threshold=brute_threshold, stats=stats, verbose=verbose)
+        safety += num_prob * torch.max(recursive_safety)
+    
+    return safety
+        

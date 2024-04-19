@@ -19,11 +19,13 @@ class SolutionTable:
         return self.curr_element + 1
     
     def __repr__(self):
-        return '\n'.join([str(torch.reshape(row, (self.rows, self.cols)).numpy()) for row in self.table])
+        return ',\n'.join([str(torch.reshape(row, (self.rows, self.cols)).numpy()) for row in self.table])
     
     def _coord2col(self, x, y):
         # convert (x,y) coordinate to column index
         return x * self.cols + y
+    def _col2coord(self, col):
+        return col / self.cols, col % self.cols
     def _expand(self, amount):
         # increase the capacity of the arraylist
         self.table = F.pad(self.table, (0,0,0,amount))
@@ -60,6 +62,13 @@ class SolutionTable:
         new_solution_bitmap.table = self.table.repeat((len(other),1)) + other.table.repeat_interleave(len(self), dim=0)
         new_solution_bitmap.curr_element = new_solution_bitmap.table.shape[0] - 1
         return new_solution_bitmap
+    
+    # ===== Methods to remove mines or solutions
+
+    def mask_coords(self, mask):
+        self.table *= torch.tile(mask.flatten(), (self.table.shape[0],1))
+        row_mask = torch.sum(self.table, dim=1).bool()
+        self.table = self.table[row_mask,:]
     
 
     # ===== Methods to count solutions =====
@@ -108,7 +117,7 @@ class SolutionSet:
         return ss
 
     def __repr__(self) -> str:
-        return 'Solutions over\n' + repr(self.bitmap) + '\n'+repr(self.solution_table)
+        return 'Solutions over\n' + repr(self.bitmap) + '\n{\n'+repr(self.solution_table)+'\n}'
     
     def clone(self):
         return deepcopy(self)
@@ -166,6 +175,14 @@ class SolutionSet:
         else:
             self.bitmap += unknown_bitmap
             self.solution_table.combine(unknown_soln_table)
+
+
+    # ===== Methods to reduce solutions =====
+
+    def shrink_bitmap(self, bitmap:Bitmap):
+        assert self.bitmap >= bitmap, 'Smaller solution area not a subset of original'
+        self.bitmap = bitmap
+        self.solution_table.mask_coords(bitmap)
     
 
     # ===== Methods to count solutions =====

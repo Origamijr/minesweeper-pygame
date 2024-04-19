@@ -37,7 +37,7 @@ def guess_min_mine_probability(B_k: Board, stats:SolverStats=None, verbose=0):
     return min_coord, min_val
 
 def solve(B_k: Board, B_t: Board, guess_fn=guess_min_mine_probability, first_move=None, stats=None, verbose=0):
-    stats = SolverStats(B_t, player=False) if stats is None else stats
+    stats = SolverStats(B_k, B_t, player=False) if stats is None else stats
     stats.start_timer()
     if first_move is not None: click_square(B_k, B_t, first_move, stats=stats)
     if verbose >= 1: print(B_k)
