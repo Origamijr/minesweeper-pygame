@@ -225,20 +225,21 @@ def __expand_msm_graph_once(MSMG:MSM_Graph, verbose=0):
         if MSMG.add_node(new_node): added = True
     if verbose >= 4 and len(to_add) > 0: print(f"added? {added}")
     return added # Return whether or not a new node was added
-                    
+
 def __find_all_independent_neighbor_edges(node: MSM_Node):
+    # Recursively find all the subsets of edges for a node that don't overlap in the node's bitmap
     def __find_all_independent_neighbor_edges_helper(bitmap:Bitmap, edges):
         if not edges: return []
         ind_neighbors = []
         while edges:
             edge, other = edges.pop()
+            if (bitmap * edge.intersection.bitmap).any(): continue
             union_bitmap = bitmap + edge.intersection.bitmap
-            if not (bitmap * edge.intersection.bitmap).any():
-                n = int(other.n())
-                ind_neighbors.append((union_bitmap, n, [(edge, other)]))
-                ind_others = __find_all_independent_neighbor_edges_helper(union_bitmap, edges.copy())
-                for i, (o_bitmap, o_n, others) in enumerate(ind_others):
-                    ind_neighbors.append((o_bitmap, n+o_n ,others+[(edge, other)]))
+            n = int(other.n())
+            ind_neighbors.append((union_bitmap, n, [(edge, other)]))
+            ind_others = __find_all_independent_neighbor_edges_helper(union_bitmap, edges.copy())
+            for i, (o_bitmap, o_n, others) in enumerate(ind_others):
+                ind_neighbors.append((o_bitmap, n+o_n ,others+[(edge, other)]))
         return ind_neighbors
     rows, cols = node.bitmap().rows, node.bitmap().cols
     return __find_all_independent_neighbor_edges_helper(Bitmap(rows, cols), list(node.get_edges()))

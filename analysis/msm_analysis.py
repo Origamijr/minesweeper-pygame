@@ -1,5 +1,6 @@
 import torch
 from core.bitmap import Bitmap
+from core.board import Board
 from analysis.msm_builder import MSM, MSM_Node, MSM_Graph, second_order_msm_reduction
 from analysis.solution_set import SolutionSet
 from solver.solver_stats import SolverStats
@@ -37,6 +38,13 @@ def seperate_connected_msm_components(MSMG:MSM_Graph) -> list[MSM_Graph]:
     # Note: The components have the same references as the original graph
     return components
 
+def merge_msm(MSMGs:list[MSM_Graph]) -> MSM_Graph:
+    merged_graph = MSM_Graph()
+    for MSMG in MSMGs:
+        for node in MSMG:
+            merged_graph.add_node(node, connect_edges=False) # Should I deep copy here?
+    return merged_graph
+
 def try_step_msm(MSMG:MSM_Graph, clear_bitmap:Bitmap=None, mine_bitmap:Bitmap=None, number_bitmap:Bitmap=None, verbose=0):
     """
     Logic reduce a MSM graph with a set of spaces to assume clear and/or mine
@@ -70,7 +78,6 @@ def try_step_msm(MSMG:MSM_Graph, clear_bitmap:Bitmap=None, mine_bitmap:Bitmap=No
         number_bitmap = number_bitmap.clone()
         for pos, dec_bit in zip(number_bitmap.nonzero(), number_bitmap.decimate()):
             MSMG.add_node(MSM_Node(MSM(dec_bit.closure() * MSMG.bitmap(), n=number_bitmap[pos], pos=pos)))
-
 
     # Solve the graph with the new node inserted
     to_clear, to_flag = second_order_msm_reduction(MSMG, minecount_first=True, verbose=verbose)

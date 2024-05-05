@@ -96,6 +96,9 @@ class SolutionTable:
                 if 0 <= x+dx < self.rows and 0 <= y+dy < self.cols: neighbor_cols.append(self._coord2col((x+dx, y+dy)))
             filtered_table = filtered_table[torch.sum(filtered_table[:,neighbor_cols], dim=1, dtype=torch.int8) == number,:]
         return filtered_table
+    
+    def get_num_solutions_with_mines(self):
+        return torch.reshape(torch.sum(self.table, dim=0), (self.rows, self.cols))
 
 
 class SolutionSet:
@@ -183,6 +186,13 @@ class SolutionSet:
         assert self.bitmap >= bitmap, 'Smaller solution area not a subset of original'
         self.bitmap = bitmap
         self.solution_table.mask_coords(bitmap)
+
+    def remove_certainty(self):
+        soln_count = self.solution_table.get_num_solutions_with_mines()
+        clear_bitmap = Bitmap(*self.bitmap.shape, bitmap=(soln_count == 0)) * self.bitmap
+        flag_bitmap = Bitmap(*self.bitmap.shape, bitmap=(soln_count == len(self.solution_table))) * self.bitmap
+        self.solution_table.mask_coords((self.bitmap - clear_bitmap) - flag_bitmap)
+        return clear_bitmap.nonzero(), flag_bitmap.nonzero()
     
 
     # ===== Methods to count solutions =====

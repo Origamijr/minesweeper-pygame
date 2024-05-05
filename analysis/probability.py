@@ -129,11 +129,29 @@ def compute_probability_from_solution_counts(
 
 # ===== Safety Functions =====
 
+def calculate_safety(B: Board, order=1, prune_threshold=0.8, brute_threshold=1000, early_stop=True, stats:SolverStats=None, verbose=0, return_imm=False):
+    # base case
+    if order == 0:
+        return torch.ones(B.shape)
 
-def _safety_helper(B:Board, components:list[MSM_Graph], solutions:list[SolutionSet], progress_coords, stats:SolverStats=None, verbose=0):
+
+def _safety_helper(
+        B:Board,
+        order,
+        components:list[MSM_Graph], 
+        solutions:list[SolutionSet], 
+        progress_coords, 
+        stats:SolverStats=None, 
+        verbose=0
+        ):
     if B.unknown().sum() - B.remaining_mines() - len(progress_coords) == 0:
         return torch.ones(B.shape)
     
+    # TODO if progress_coords is nonempty, skip computation and immediately recurse
+    if len(progress_coords) > 0:
+        coord = progress_coords.pop()
+        return _safety_at_coord_helper
+
     # Get components, solutions, and counts, recomputing if needs to 
     components_t, solutions_t, counts_t = [], [], []
     for component, solution in zip(components, solutions):
@@ -153,12 +171,24 @@ def _safety_helper(B:Board, components:list[MSM_Graph], solutions:list[SolutionS
                 counts_t.append(solutions_t[-1].get_solution_counts())
     components, solutions, counts = components_t, solutions_t, counts_t
 
-    # TODO, finish
+    immediate_safety, total_possibilities = compute_probability_from_solution_counts(components, solutions, counts, B.remaining_mines(), return_possibilities=True, verbose=verbose)
+
+    # TODO, Pruning strategy
+
+    # TODO, recurse on non-pruned coords
     pass
 
-def _safety_at_coord_helper(B:Board, coord, components:list[MSM_Graph], solutions:list[SolutionSet], verbose=0):
+def _safety_at_coord_helper(
+        B:Board, 
+        order,
+        coord, 
+        components:list[MSM_Graph], 
+        solutions:list[SolutionSet], 
+        total_possibilities,
+        verbose=0
+        ):
     # Figure out which solution sets get affected by the existance of a number at coord
-    c_size = [c[0].size() for c in components if CKEY in c][0] if any(CKEY in c for c in components) else 0
+    c_size = [c[CKEY][0].size() for c in components if CKEY in c][0] if any(CKEY in c and len(c[CKEY])>0 for c in components) else 0
     coord_neigh = B.neighbor_mask(*coord)
     affected_comps = []
     curr_comp_ind = None
@@ -181,6 +211,7 @@ def _safety_at_coord_helper(B:Board, coord, components:list[MSM_Graph], solution
 
     if new_region.sum() != 0:
         curr_solns.add_region(new_region)
+        
     for comp_ind in affected_comps:
         curr_solns = SolutionSet.combine_solution_sets(curr_solns, solutions[comp_ind])
 
@@ -203,15 +234,16 @@ def _safety_at_coord_helper(B:Board, coord, components:list[MSM_Graph], solution
         for n, count in cond_counts.items():
             if B.remaining_mines() < n: continue
             if n + c_size - new_region.sum() < B.remaining_mines(): continue
-            possibilities += count * max(1, comb(c_size - new_region.sum() - (1 if coord_in_complement else 0), num_mines - n))
+            possibilities += count * max(1, comb(c_size - new_region.sum() - (1 if coord_in_complement else 0), B.remaining_mines() - n))
         if possibilities == 0: continue
         # Divide to get the probability of the number
         num_prob = possibilities / total_possibilities
 
         B_aug = B.reduce()
         B_aug.set_clear(coord[0], coord[1], num)
-        # TODO add trivial first oder msm induced by number, and apply second order logic to components
-        recursive_safety = calculate_safety(B_aug, order-1, prune_threshold=prune_threshold, brute_threshold=brute_threshold, stats=stats, verbose=verbose)
+        # TODO add trivial first order msm induced by number, and apply second order logic to components
+
+        recursive_safety = _safety_helper(B_aug, order-1, prune_threshold=prune_threshold, brute_threshold=brute_threshold, stats=stats, verbose=verbose)
         safety += num_prob * torch.max(recursive_safety)
     
     return safety
