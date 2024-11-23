@@ -34,6 +34,8 @@ class MSM:
         return MSM(self.bitmap * other.bitmap, pos=self.pos)
     def __repr__(self):
         return repr(self.n) + ' mine(s), ' + repr(self.pos) + ' ' + repr(int(self.size)) + '=====\n' + repr(self.bitmap) + '\n'
+    def clone(self):
+        return deepcopy(self)
 
 class MSM_Node:
     # Wrapper class for MSM to define relationships between other nearby MSM
@@ -111,6 +113,11 @@ class MSM_Graph:
         self.MSMs = dict()
         self._bitmap = None
         self._flattened = None
+    @staticmethod
+    def from_single(self, bitmap, n=None, pos=None):
+        msmg = MSM_Graph()
+        msmg.new_node(bitmap, n, pos)
+        return msmg
     def clone(self):
         return deepcopy(self)
     def __repr__(self):
@@ -126,7 +133,7 @@ class MSM_Graph:
         return (node for node in self.flatten())
     def __len__(self):
         return len(self.flatten())
-    def __getitem__(self, key):
+    def __getitem__(self, key) -> MSM_Node:
         return self.MSMs[key]
     def add_node(self, node:MSM_Node, connect_edges=True):
         # Adds node and connects edges that intersect. Return True if success
@@ -142,6 +149,8 @@ class MSM_Graph:
         if coord not in self.MSMs: self.MSMs[coord] = []
         self.MSMs[coord].append(node)
         return True
+    def new_node(self, bitmap, n, pos, connect_edges=True):
+        self.add_node(MSM_Node(MSM(bitmap, n, pos)), connect_edges=connect_edges)
     def remove_node(self, node:MSM_Node):
         self._flattened = None
         self._bitmap = None
@@ -154,7 +163,7 @@ class MSM_Graph:
             for coord in self.MSMs:
                 self._flattened += self.MSMs[coord]
         return self._flattened
-    def bitmap(self):
+    def bitmap(self) -> Bitmap:
         # Returns a flattened version of the underlying dictionary
         if self._bitmap is None:
             for node in self:

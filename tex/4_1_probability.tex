@@ -8,16 +8,18 @@ Suppose we have probability space $(\Omega,2^{\Omega},P)$. Recall that if the sa
 \begin{align*}
     P(A)=\frac{|A|}{|\Omega|}
 \end{align*}
-Let us determine our probability space for our mine probability problem. Suppose our current board state is $B$. The probability space of interest is over the set of complete board states that continue $B$, $\Omega_B=\{B'\in\mathbb{B}|B\Rightarrow B',B'\text{ natural and complete}\}$. Note that the function $M(a)$ is a valid random variable over this space, where the selected board determines which mine function to use.\\
+Let us determine our probability space for our mine probability problem. Suppose our current board state is $B$. The probability space of interest is over the set of complete board states that continue $B$, $\Omega_B=\{B'\in\mathbb{B}|B\Rightarrow B',B'\text{ natural and complete}\}$. Note that the function $M(a)$ is a valid random variable over this space, where Sthe selected board determines which mine function to use.\\
 
 We can then see that our desired probability is $P_M(a)$. Under the definition of random variables and the assumption that all complete boards have equal probability, we get the following formulation.
 \thm{Single Square Mine Probability}{\index{Probability!of a single mine}
 The probability of a square $a\in\mathcal{A}$ containing a mine for board $B$ is given by
 \begin{align*}
-    P_M(a)&=P(M(a)=1)\\
+    P^B_M(a)&=P(M(a)=1)\\
     &=P(\{B'\in\Omega_B|M_{B'}(a)=1\})\\
-    P_M(a)&=\frac{|\{B'\in\Omega_B|M_{B'}(a)=1\}|}{|\Omega_B|}=\frac{\text{\# of natural complete boards continuing $B$ with mine at $a$}}{\text{\# of natural complete boards continuing $B$}}
+    P^B_M(a)&=\frac{|\{B'\in\Omega_B|M_{B'}(a)=1\}|}{|\Omega_B|}=\frac{\text{\# of natural complete boards continuing $B$ with mine at $a$}}{\text{\# of natural complete boards continuing $B$}}
 \end{align*}
+
+In the case the board $B$ from which the probability is being calculated is clear, for notation
 }
 This has the simple interpretation of the number of boards completing our current board $B$ with a mine at $a$, divided by the total number of boards that complete our current board.\\
 

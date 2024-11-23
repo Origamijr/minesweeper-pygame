@@ -1,3 +1,5 @@
+from itertools import combinations
+
 from core.board import Board
 from core.bitmap import Bitmap
 from analysis.utils import update_board
@@ -243,3 +245,8 @@ def __find_all_independent_neighbor_edges(node: MSM_Node):
         return ind_neighbors
     rows, cols = node.bitmap().rows, node.bitmap().cols
     return __find_all_independent_neighbor_edges_helper(Bitmap(rows, cols), list(node.get_edges()))
+
+def __find_all_superset_neighbor_edge_pairs(node: MSM_Node):
+    for (e1, o1), (e2, o2) in combinations(node.get_edges(), 2):
+        if e1.intersection.bitmap + e2.intersection.bitmap >= node.bitmap():
+            yield ()

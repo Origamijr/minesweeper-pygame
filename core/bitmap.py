@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+import itertools
 
 NEIGHBOR_KERNEL = torch.tensor([[[[1.,1.,1.],
                                   [1.,0.,1.],
@@ -120,6 +121,15 @@ class Bitmap:
         power_set = [Bitmap(*self.shape)]
         for bit in self.decimate(): power_set += [s+bit for s in power_set]
         return power_set
+
+    def combinations(self, r):
+        assert 0 <= r <= self.sum()
+        combs = []
+        for comb in itertools.combinations(self.decimate(), r):
+            combs.append(Bitmap(*self.shape))
+            for a in comb:
+                combs[-1] += a
+        return combs
 
     def flatten(self):
         return self.bitmap.view(-1)

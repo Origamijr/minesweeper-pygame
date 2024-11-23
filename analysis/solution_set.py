@@ -14,6 +14,12 @@ class SolutionTable:
         self.rows, self.cols = board_shape
         self.curr_element = -1
         self.table = torch.zeros(init_capacity, self.rows * self.cols, dtype=torch.int8)
+
+    @staticmethod
+    def from_table(board_shape, table):
+        st = SolutionTable(board_shape)
+        st.table = table
+        st.curr_element = table.shape[0] - 1
     
     def __len__(self):
         return self.curr_element + 1
@@ -25,7 +31,7 @@ class SolutionTable:
         # convert (x,y) coordinate to column index
         return x * self.cols + y
     def _col2coord(self, col):
-        return col / self.cols, col % self.cols
+        return col // self.cols, col % self.cols
     def _expand(self, amount):
         # increase the capacity of the arraylist
         self.table = F.pad(self.table, (0,0,0,amount))
@@ -34,6 +40,22 @@ class SolutionTable:
         self.table = self.table[:self.curr_element+1,:]
     def _capacity(self):
         return self.table.shape[0]
+
+    def get_solutions(self):
+        self._trim_rows()
+        return self.table
+    
+    def get_counts(self):
+        self._trim_rows()
+        return {num_mines.item(): count.item() for num_mines, count in zip(*torch.unique(torch.sum(self.table, dim=1), return_counts=True))}
+
+    def reduced_table(self, bitmap=None):
+        # return a table with columns corresponding to an index list
+        if bitmap is None:
+            indices = list(torch.sum(self.table, dim=0).nonzero().flatten().numpy())
+        else:
+            indices = list(bitmap.flatten().nonzero().flatten().numpy())
+        return self.table[:,indices], [self._col2coord(i) for i in indices]
     
 
     # ===== Methods to add and combine Solutions =====
@@ -68,10 +90,10 @@ class SolutionTable:
     def mask_coords(self, mask):
         self.table *= torch.tile(mask.flatten(), (self.table.shape[0],1))
         row_mask = torch.sum(self.table, dim=1).bool()
-        self.table = self.table[row_mask,:]
+        self.table = torch.unique(self.table[row_mask,:], dim=0)
     
 
-    # ===== Methods to count solutions =====
+    # ===== Methods to get conditional solutions/counts =====
 
     def solution_intersection_mask(self, coords, val=1):
         # Return true/false size n bitmask indicating if solution as value val at coordinates given
@@ -98,7 +120,13 @@ class SolutionTable:
         return filtered_table
     
     def get_num_solutions_with_mines(self):
+        # Returns 2D array with number of solutions with a mine at that location
         return torch.reshape(torch.sum(self.table, dim=0), (self.rows, self.cols))
+    
+    def get_solutions_with_num_mines(self, n):
+        # Return rows of the table with n mines total
+        return self.table[torch.sum(self.table, dim=1)==n,:]
+
 
 
 class SolutionSet:
@@ -111,13 +139,20 @@ class SolutionSet:
 
     @staticmethod
     def powerset(bitmap:Bitmap):
-        ss = SolutionSet()
-        ss.bitmap = bitmap
-        solution_table = SolutionTable(bitmap.shape)
+        # Return a SolutionSet with a powerset number of mines
+        ss = SolutionSet(bitmap=bitmap)
         for soln in bitmap.powerset():
-            solution_table.add(soln)
-        ss.solution_table = solution_table
+            ss.solution_table.add(soln)
         return ss
+    
+    @staticmethod
+    def combinations(bitmap:Bitmap, r):
+        # Return a SolutionSet conatining all solutions in the bitmap with r mines
+        ss = SolutionSet(bitmap=bitmap)
+        for soln in bitmap.combinations(r):
+            ss.solution_table.add(soln)
+        return ss
+
 
     def __repr__(self) -> str:
         return 'Solutions over\n' + repr(self.bitmap) + '\n{\n'+repr(self.solution_table)+'\n}'
@@ -165,19 +200,36 @@ class SolutionSet:
         ss.solution_table = ss1.solution_table.combine(ss2.solution_table)
         return ss
     
-    def add_region(self, bitmap:Bitmap):
+    def add_region(self, bitmap:Bitmap, n=None):
         # Add all possible solutions involving a new unknown region
-        # TODO consider adding a limit on number of mines if unknown region is large
         unknown_bitmap = bitmap - self.bitmap
-        unknown_soln_table = SolutionTable(unknown_bitmap.shape)
-        for soln in unknown_bitmap.powerset():
-            unknown_soln_table.add(soln)
         if self.bitmap is None:
             self.bitmap = unknown_bitmap
-            self.solution_table = unknown_soln_table
-        else:
+            if n is None:
+                self.solution_table = SolutionSet.powerset(unknown_bitmap).solution_table
+            else:
+                self.solution_table = SolutionSet.combinations(unknown_bitmap, n).solution_table
+            return
+        
+        if n is None:
+            unknown_soln_table = SolutionSet.powerset(unknown_bitmap).solution_table
             self.bitmap += unknown_bitmap
             self.solution_table.combine(unknown_soln_table)
+            return
+        
+        counts = self.solution_table.get_counts()
+        table = SolutionTable(self.bitmap.shape)
+        for num_mines in counts:
+            r = n - num_mines
+            if r < 0 or r > unknown_bitmap.sum(): continue
+            subtable = SolutionTable.from_table(self.bitmap.shape, self.solution_table.get_solutions_with_num_mines(r))
+            subtable.combine(SolutionSet.combinations(unknown_bitmap, r).solution_table)
+            table.concatenate(subtable)
+        self.solution_table = table
+
+
+
+
 
 
     # ===== Methods to reduce solutions =====
@@ -193,6 +245,13 @@ class SolutionSet:
         flag_bitmap = Bitmap(*self.bitmap.shape, bitmap=(soln_count == len(self.solution_table))) * self.bitmap
         self.solution_table.mask_coords((self.bitmap - clear_bitmap) - flag_bitmap)
         return clear_bitmap.nonzero(), flag_bitmap.nonzero()
+    
+    def split_bitmap(self, bitmaps:list[Bitmap]):
+        solutions = []
+        for bitmap in bitmaps:
+            solutions.append(self.clone())
+            solutions[-1].shrink_bitmap(bitmap)
+        return solutions
     
 
     # ===== Methods to count solutions =====
@@ -252,3 +311,51 @@ class SolutionSet:
         else:
             progress = torch.sum((solution_counts == 0) * self.bitmap) - len(clear_coords)
         return counts, progress
+    
+    def brute_force_win(self, verbose=0):
+        # brute force win probability assuming all solutions are enumerated
+
+        # get reduced table for simplicity
+        table, coords = self.solution_table.reduced_table(self.bitmap)
+        
+        # create connectivity graph
+        coord_graph = {c: [b for b in coords if -2<b[0]-c[0]<2 and -2<b[1]-c[1]<2 and b!=c] for c in coords}
+
+        def _helper(table, coords, depth=0) -> dict[tuple,float]:
+            w_prob = dict()
+            # for each coordinate, calculate win probability recursively
+            for i, coord in enumerate(coords):
+                m_prob = torch.sum(table[:,i]) / table.shape[0]
+                if m_prob == 1: continue # No need to evaluate further if coord is always mine
+                if verbose >= 4: print(f'{"".join(["  "]*depth)}evaluating {coord}: {torch.sum(1-table[:,i])}/{table.shape[0]}')
+
+                # Get the residual table from removing the current coordinate
+                res_table = table[table[:,i]==0,:]
+                res_table = torch.cat([res_table[:,:i],res_table[:,i+1:]], dim=1)
+                res_coords = coords[:i]+coords[i+1:]
+
+                # Get the number of neighbors the current coord has in the residual table
+                neighbors = torch.zeros(res_table.shape[0])
+                for ncoord in coord_graph[coord]:
+                    if ncoord not in res_coords: continue
+                    neighbors += res_table[:,res_coords.index(ncoord)]
+                
+                # Iterate over the possible number of neighor mines for the given coord
+                w_prob[coord] = 0
+                for n in set(neighbors.numpy()):
+                    # Accumulate the safety value for each neighbor mine count
+                    num_table = res_table[neighbors==n,:]
+                    n_prob = num_table.shape[0] / res_table.shape[0]
+                    if num_table.shape[0] == 1:
+                        w_prob[coord] += n_prob # Base case when only one solution shows up after number chosen
+                    else:
+                        w_prob[coord] += n_prob * max(_helper(num_table, res_coords, depth+1).values())
+                w_prob[coord] *= 1 - m_prob
+            return w_prob
+        
+        w_prob_dict = _helper(table, coords)
+        w_prob = torch.zeros(self.bitmap.shape)
+        for coord, p in w_prob_dict.items():
+            w_prob[coord] = p
+        return w_prob
+

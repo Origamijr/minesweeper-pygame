@@ -1,6 +1,6 @@
 from analysis.msm_builder import get_msm_graph, CKEY
 from analysis.msm_graph import MSM_Graph
-from analysis.msm_analysis import find_solutions, seperate_connected_msm_components, try_step_msm
+from analysis.msm_analysis import find_solutions, seperate_connected_msm_components, reduce_and_seperate_msm_graph
 from analysis.solution_set import SolutionSet
 from analysis.utils import merge_disjoint_counts
 from core.board import Board
@@ -72,7 +72,7 @@ def compute_possibilities(counts, remaining_mines, complement_size):
 
 
 def compute_probability_from_solution_counts(
-        components:list[MSM_Graph], # List of disjoint solvable regions in the board
+        components:list[MSM_Graph], # List of disjoint solvable regions in the board TODO this isn't really needed as solutions should contain a bitmap
         solutions:list[SolutionSet], # List of solutions corresponding to the components
         counts:list[dict[int,int]], # List of the number of solutions for each corresponding solution
         remaining_mines, # number of remaining mines
@@ -140,20 +140,25 @@ def _safety_helper(
         order,
         components:list[MSM_Graph], 
         solutions:list[SolutionSet], 
-        progress_coords, 
-        stats:SolverStats=None, 
+        progress_coords,
+        prune_threshold=0.8,
+        stats:SolverStats=None,
         verbose=0
         ):
+    if order <= 0:
+        return torch.ones(B.shape)
+
     if B.unknown().sum() - B.remaining_mines() - len(progress_coords) == 0:
         return torch.ones(B.shape)
     
     # TODO if progress_coords is nonempty, skip computation and immediately recurse
     if len(progress_coords) > 0:
         coord = progress_coords.pop()
-        return _safety_at_coord_helper
+        return _safety_at_coord_helper()
 
     # Get components, solutions, and counts, recomputing if needs to 
     components_t, solutions_t, counts_t = [], [], []
+    pruned = []
     for component, solution in zip(components, solutions):
         comps = seperate_connected_msm_components(component)
         for comp in comps:
@@ -161,6 +166,7 @@ def _safety_helper(
             if CKEY in comp:
                 solutions_t.append(None)
                 counts_t.append(None)
+                pruned = (comp[CKEY].bitmap().neighbor_count_map().bitmap > 3).nonzero() # TODO need a more elegant interface in bitmap to avoid direct access
             else:
                 if solution is None:
                     solutions_t.append(find_solutions(comp, stats=stats, verbose=verbose))
@@ -171,12 +177,20 @@ def _safety_helper(
                 counts_t.append(solutions_t[-1].get_solution_counts())
     components, solutions, counts = components_t, solutions_t, counts_t
 
-    immediate_safety, total_possibilities = compute_probability_from_solution_counts(components, solutions, counts, B.remaining_mines(), return_possibilities=True, verbose=verbose)
+    immediate_probability, total_possibilities = compute_probability_from_solution_counts(components, solutions, counts, B.remaining_mines(), return_possibilities=True, verbose=verbose)
+    immediate_safety = 1 - immediate_probability
 
     # TODO, Pruning strategy
+    max_safety = max([immediate_safety[coord] for coord in B.unknown().nonzero() if coord not in pruned])
+    if max_safety == 1:
+        progress_coords = [coord for coord in B.unknown().nonzero() if immediate_safety[coord]==1]
+        
+    safety = torch.zeros(B.shape)
+    for coord in B.unknwon().nonzero():
+        if coord in pruned or immediate_safety[coord] < prune_threshold * max_safety: continue
+        safety[coord] = _safety_at_coord_helper(B, order, coord, components, solutions, total_possibilities, prune_threshold, stats, verbose)
 
-    # TODO, recurse on non-pruned coords
-    pass
+    return safety
 
 def _safety_at_coord_helper(
         B:Board, 
@@ -185,6 +199,8 @@ def _safety_at_coord_helper(
         components:list[MSM_Graph], 
         solutions:list[SolutionSet], 
         total_possibilities,
+        prune_threshold=0.8,
+        stats=None,
         verbose=0
         ):
     # Figure out which solution sets get affected by the existance of a number at coord
@@ -203,26 +219,47 @@ def _safety_at_coord_helper(
         if component.bitmap()[coord] == 1: curr_comp_ind = i
     
     # Create a larger solution set including the neighborhood
-    coord_in_complement = CKEY in components[curr_comp_ind] and len(components[curr_comp_ind][CKEY]) > 0
-    if coord_in_complement: 
-        curr_solns = SolutionSet.powerset(new_region)
-    else:
-        curr_solns:SolutionSet = solutions[curr_comp_ind].clone()
+    #coord_in_complement = CKEY in components[curr_comp_ind] and len(components[curr_comp_ind][CKEY]) > 0
+    #if coord_in_complement: 
+    #    curr_solns = SolutionSet.powerset(new_region)
+    #else:
+    #    curr_solns:SolutionSet = solutions[curr_comp_ind].clone()
 
-    if new_region.sum() != 0:
-        curr_solns.add_region(new_region)
+    #if new_region.sum() != 0:
+    #    curr_solns.add_region(new_region)
         
-    for comp_ind in affected_comps:
-        curr_solns = SolutionSet.combine_solution_sets(curr_solns, solutions[comp_ind])
+    # Recreate the graph for the affected components
+    curr_component = MSM_Graph.from_single(Bitmap.coords(*B.shape, [coord]), 0, coord)
+    components_aug = []
+    solutions_aug = [] # [SolutionSet.powerset(new_region)]
+    for i in range(len(components)):
+        if CKEY in components[i]:
+            complement = components[i].bitmap() - new_region
+            if complement.sum() > 0:
+                components_aug.append(MSM_Graph.from_single(complement, pos=CKEY))
+                solutions_aug.append(None)
+        elif i in affected_comps:
+            for node in components[i].clone():
+                curr_component.new_node(node.bitmap, node.n, node.pos)
+            #solutions_aug[0] = SolutionSet.combine_solution_sets(solutions_aug[0], solutions[i])
+        else:
+            components_aug.append(components[i].clone())
+            solutions_aug.append(solutions[i].clone())
+
+    # Recompute the solutions for the new component
+    for component in reduce_and_seperate_msm_graph(curr_component):
+        pass
 
     # Compute solution counts for each number
-    num_counts = curr_solns.get_solution_counts_for_numbers(coord, clear_coords=[coord])
-    if verbose >= 4: print(f"Given {coord} clear, {num_counts}: {curr_solns}")
+    #num_counts = solutions_aug[0].get_solution_counts_for_numbers(coord, clear_coords=[coord])
+    if verbose >= 4: print(f"Given {coord} clear, {num_counts}: {solutions_aug[0]}")
 
     # Compute recursive safety for each possible number
     safety = 0
     for num, cond_counts in num_counts.items():
         if verbose >= 3: print(f"Trying {num} at {coord} with counts {cond_counts}")
+
+        # TODO add number MSM, step with 2nd order reducction, split components and solutions if necessary, compute probability, recurse
 
         # merge counts
         for i, soln in enumerate(solutions):
@@ -240,11 +277,15 @@ def _safety_at_coord_helper(
         num_prob = possibilities / total_possibilities
 
         B_aug = B.reduce()
-        B_aug.set_clear(coord[0], coord[1], num)
+        B_aug.set_clear(*coord, num)
         # TODO add trivial first order msm induced by number, and apply second order logic to components
 
-        recursive_safety = _safety_helper(B_aug, order-1, prune_threshold=prune_threshold, brute_threshold=brute_threshold, stats=stats, verbose=verbose)
+        recursive_safety = _safety_helper(B_aug, 
+                                          order-1, 
+
+                                          prune_threshold=prune_threshold, 
+                                          stats=stats, 
+                                          verbose=verbose)
         safety += num_prob * torch.max(recursive_safety)
     
     return safety
-        
